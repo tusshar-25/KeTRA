@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import Card from "../common/Card";
 import Loader from "../common/Loader";
-import { getTransactions } from "../../services/transactionService";
+import { getTransactions } from "../../services/TransactionService";
 
 /* ---------------- HELPERS ---------------- */
 
