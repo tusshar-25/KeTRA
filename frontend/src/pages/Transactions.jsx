@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Card from "../components/common/Card";
 import Loader from "../components/common/Loader";
-import { getTransactions } from "../services/transactionService";
+import { getTransactions } from "../services/TransactionService";
 
 /* ---------------- HELPERS ---------------- */
 
