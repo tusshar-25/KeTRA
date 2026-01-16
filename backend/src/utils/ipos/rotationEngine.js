@@ -31,27 +31,17 @@ const generateRealisticDates = (baseIPO, today, index) => {
   const todayObj = new Date(today);
   const dayOfWeek = todayObj.getDay();
   
-  // IPOs typically open on weekdays, avoid weekends
+  // Show more IPOs opening today for better visibility
   // Create overlapping IPO periods for more variety
   let daysFromToday;
-  if (index === 0) {
-    daysFromToday = 0; // First IPO opens today
-  } else if (index === 1) {
-    daysFromToday = 0; // Second IPO also opens today (overlap)
-  } else if (index === 2) {
-    daysFromToday = 0; // Third IPO also opens today (overlap)
-  } else if (index === 3) {
-    daysFromToday = 1; // Fourth IPO opens tomorrow
-  } else if (index === 4) {
-    daysFromToday = 1; // Fifth IPO also opens tomorrow (overlap)
-  } else if (index === 5) {
-    daysFromToday = 2; // Sixth IPO opens day after tomorrow
-  } else if (index === 6) {
-    daysFromToday = 2; // Seventh IPO also opens day after tomorrow (overlap)
-  } else if (index <= 12) {
-    daysFromToday = index - 4; // More IPOs within next week
+  if (index < 15) {
+    daysFromToday = 0; // First 15 IPOs open today
+  } else if (index < 25) {
+    daysFromToday = 1; // Next 10 IPOs open tomorrow
+  } else if (index < 30) {
+    daysFromToday = 2; // Next 5 IPOs open day after tomorrow
   } else {
-    daysFromToday = index * 2; // Later IPOs spread further apart
+    daysFromToday = index - 25; // Rest spread out
   }
   
   // If today is weekend, start from next Monday
@@ -87,13 +77,13 @@ const initializeIPOState = () => {
     return ipoState;
   }
 
-  // Generate realistic dates for all IPOs and put them in a single array first
+  // Use the actual dates from IPO data instead of generating new ones
   const allIPOs = [
-    ...iposOpen.map((ipo, index) => generateRealisticDates(ipo, today, index)),
-    ...iposUpcoming.map((ipo, index) => generateRealisticDates(ipo, today, index + 100))
+    ...iposOpen.map((ipo) => ({ ...ipo })), // Keep original dates
+    ...iposUpcoming.map((ipo) => ({ ...ipo })) // Keep original dates
   ];
   
-  // Now categorize properly based on dates
+  // Filter by actual dates from the data
   ipoState.open = allIPOs.filter(ipo => ipo.openDate <= today && today <= ipo.closeDate);
   ipoState.upcoming = allIPOs.filter(ipo => today < ipo.openDate);
   ipoState.closed = iposClosed;
@@ -118,22 +108,15 @@ const processDailyRotation = () => {
   console.log(`🔄 Processing daily rotation for ${today} (Local Time)`);
   console.log(`📊 Before rotation: ${ipoState.open.length} Open, ${ipoState.upcoming.length} Upcoming, ${ipoState.closed.length} Closed`);
 
-  // Combine all IPOs and categorize by today's date
-  const allIPOs = [...ipoState.open, ...ipoState.upcoming];
+  // Use actual IPO data with real dates
+  const allIPOs = [
+    ...iposOpen.map((ipo) => ({ ...ipo })), // Keep original dates
+    ...iposUpcoming.map((ipo) => ({ ...ipo })) // Keep original dates
+  ];
   
-  // OPEN: IPOs where today is between openDate and closeDate (inclusive)
-  ipoState.open = allIPOs.filter((ipo) => {
-    const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
-    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}, IsOpen=${isOpen}`);
-    return isOpen;
-  });
-
-  // UPCOMING: IPOs where today is before openDate
-  ipoState.upcoming = allIPOs.filter((ipo) => {
-    const isUpcoming = today < ipo.openDate;
-    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Today=${today}, IsUpcoming=${isUpcoming}`);
-    return isUpcoming;
-  });
+  // Filter by actual dates from the data
+  ipoState.open = allIPOs.filter(ipo => ipo.openDate <= today && today <= ipo.closeDate);
+  ipoState.upcoming = allIPOs.filter(ipo => today < ipo.openDate);
 
   // CLOSED: IPOs where today is after closeDate
   const newlyClosed = allIPOs.filter((ipo) => {
