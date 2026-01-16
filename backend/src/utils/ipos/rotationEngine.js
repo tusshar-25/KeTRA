@@ -92,17 +92,24 @@ const initializeIPOState = () => {
   const newlyClosed = [];
   
   allIPOs.forEach(ipo => {
+    // OPEN: Current date falls between open and close dates (inclusive)
     const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
+    // UPCOMING: Current date is before open date
     const isUpcoming = today < ipo.openDate;
+    // CLOSED: Current date is after close date
     const isClosed = today > ipo.closeDate;
     
-    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}, IsOpen=${isOpen}, IsUpcoming=${isUpcoming}, IsClosed=${isClosed}`);
+    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}`);
+    console.log(`   Logic: isOpen=${isOpen} (open≤today≤close), isUpcoming=${isUpcoming} (today<open), isClosed=${isClosed} (today>close)`);
     
     if (isOpen) {
+      console.log(`   ✅ ${ipo.name} → OPEN section`);
       ipoState.open.push(ipo);
     } else if (isUpcoming) {
+      console.log(`   ⏭ ${ipo.name} → UPCOMING section`);
       ipoState.upcoming.push(ipo);
     } else if (isClosed) {
+      console.log(`   ❌ ${ipo.name} → CLOSED section`);
       newlyClosed.push(ipo);
     }
   });
@@ -146,17 +153,24 @@ const processDailyRotation = () => {
   const newlyClosed = [];
   
   allIPOs.forEach(ipo => {
+    // OPEN: Current date falls between open and close dates (inclusive)
     const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
+    // UPCOMING: Current date is before open date
     const isUpcoming = today < ipo.openDate;
+    // CLOSED: Current date is after close date
     const isClosed = today > ipo.closeDate;
     
-    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}, IsOpen=${isOpen}, IsUpcoming=${isUpcoming}, IsClosed=${isClosed}`);
+    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}`);
+    console.log(`   Logic: isOpen=${isOpen} (open≤today≤close), isUpcoming=${isUpcoming} (today<open), isClosed=${isClosed} (today>close)`);
     
     if (isOpen) {
+      console.log(`   ✅ ${ipo.name} → OPEN section`);
       ipoState.open.push(ipo);
     } else if (isUpcoming) {
+      console.log(`   ⏭ ${ipo.name} → UPCOMING section`);
       ipoState.upcoming.push(ipo);
     } else if (isClosed) {
+      console.log(`   ❌ ${ipo.name} → CLOSED section`);
       newlyClosed.push(ipo);
     }
   });
@@ -325,13 +339,8 @@ const processDailyRotation = () => {
 
 // Get current IPO status (with proper state management)
 export const getCurrentIPOStatus = () => {
-  // Initialize if not done yet
-  if (!ipoState.initialized) {
-    return initializeIPOState();
-  }
-  
-  // Process daily rotation
-  return processDailyRotation();
+  // Always process fresh data to avoid caching issues
+  return initializeIPOState();
 };
 
 // Force refresh IPO data (for manual refresh)
