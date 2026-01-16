@@ -84,9 +84,23 @@ const initializeIPOState = () => {
   ];
   
   // Filter by actual dates from the data
-  ipoState.open = allIPOs.filter(ipo => ipo.openDate <= today && today <= ipo.closeDate);
-  ipoState.upcoming = allIPOs.filter(ipo => today < ipo.openDate);
-  ipoState.closed = iposClosed;
+  console.log(`🔍 Today's date: ${today}`);
+  
+  ipoState.open = allIPOs.filter(ipo => {
+    const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
+    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}, IsOpen=${isOpen}`);
+    return isOpen;
+  });
+  
+  ipoState.upcoming = allIPOs.filter(ipo => {
+    const isUpcoming = today < ipo.openDate;
+    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Today=${today}, IsUpcoming=${isUpcoming}`);
+    return isUpcoming;
+  });
+  
+  // Also add IPOs that have closed to closed list
+  const newlyClosed = allIPOs.filter(ipo => today > ipo.closeDate);
+  ipoState.closed = [...iposClosed, ...newlyClosed];
   ipoState.lastRotationDate = today;
   ipoState.initialized = true;
 
@@ -115,15 +129,27 @@ const processDailyRotation = () => {
   ];
   
   // Filter by actual dates from the data
-  ipoState.open = allIPOs.filter(ipo => ipo.openDate <= today && today <= ipo.closeDate);
-  ipoState.upcoming = allIPOs.filter(ipo => today < ipo.openDate);
-
-  // CLOSED: IPOs where today is after closeDate
-  const newlyClosed = allIPOs.filter((ipo) => {
+  console.log(`🔍 Today's date: ${today}`);
+  
+  ipoState.open = allIPOs.filter(ipo => {
+    const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
+    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}, IsOpen=${isOpen}`);
+    return isOpen;
+  });
+  
+  ipoState.upcoming = allIPOs.filter(ipo => {
+    const isUpcoming = today < ipo.openDate;
+    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Today=${today}, IsUpcoming=${isUpcoming}`);
+    return isUpcoming;
+  });
+  
+  // Also add IPOs that have closed to closed list
+  const newlyClosed = allIPOs.filter(ipo => {
     const isClosed = today > ipo.closeDate;
     console.log(`📅 ${ipo.name}: Close=${ipo.closeDate}, Today=${today}, IsClosed=${isClosed}`);
     return isClosed;
   });
+  ipoState.closed = [...iposClosed, ...newlyClosed];
 
   // ALLOTMENT: Check for IPOs that should be allotted today (day after closing)
   const dayAfterClose = addDays(today, -1); // Yesterday was the close date
