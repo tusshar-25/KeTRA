@@ -12,12 +12,11 @@ const GainersLosers = () => {
       try {
         setLoading(true);
         
-        // Fetch real market data using backend API
+        // Fetch real market data using backend API with same symbols as backend default
         const symbols = [
           "RELIANCE.NS", "TCS.NS", "INFY.NS", "HDFCBANK.NS", "ICICIBANK.NS",
-          "SBIN.NS", "AXISBANK.NS", "KOTAKBANK.NS", "HINDUNILVR.NS", "ITC.NS",
-          "BHARTIARTL.NS", "MARUTI.NS", "TATAMOTORS.NS", "WIPRO.NS", "HCLTECH.NS",
-          "SUNPHARMA.NS", "DRREDDY.NS", "CIPLA.NS", "TATASTEEL.NS", "JSWSTEEL.NS"
+          "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS", "LT.NS", "AXISBANK.NS",
+          "MARUTI.NS", "HCLTECH.NS", "SUNPHARMA.NS", "M&M.NS", "TITAN.NS"
         ];
 
         const response = await getLiveStocks(symbols);
@@ -50,7 +49,9 @@ const GainersLosers = () => {
           setGainers(topGainers);
           setLosers(topLosers);
         } else {
-          throw new Error('No stocks data received');
+          console.warn('No stocks data received from backend');
+          setGainers([]);
+          setLosers([]);
         }
       } catch (error) {
         console.error("Failed to fetch real market data:", error);
