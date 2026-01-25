@@ -196,13 +196,16 @@ router.get("/stocks", async (req, res) => {
           throw new Error("Invalid quote data");
         }
 
-        // Log raw price for debugging RELIANCE
-        if (symbol.includes('RELIANCE')) {
-          console.log(`RELIANCE raw data:`, {
+        // Log raw price for debugging RELIANCE and TCS
+        if (symbol.includes('RELIANCE') || symbol.includes('TCS')) {
+          console.log(`${symbol} raw data:`, {
             regularMarketPrice: q.regularMarketPrice,
             regularMarketPriceFmt: q.regularMarketPriceFmt,
-            regularMarketTime: q.regularMarketTime,
-            marketState: q.marketState
+            regularMarketTime: new Date(q.regularMarketTime * 1000).toISOString(),
+            marketState: q.marketState,
+            exchange: q.fullExchangeName,
+            currency: q.currency,
+            source: 'Yahoo Finance'
           });
         }
 
@@ -248,9 +251,10 @@ router.get("/stocks", async (req, res) => {
     res.json({
       stocks: results,
       delayed: true,
-      source: "Yahoo Finance",
+      source: "Yahoo Finance (15-min delayed for Indian markets)",
       lastUpdated: new Date().toISOString(),
-      fetchTime: `${fetchTime}ms`
+      fetchTime: `${fetchTime}ms`,
+      note: "Prices may differ from real-time broker data due to 15-minute delay"
     });
   } catch (error) {
     console.error("STOCK ROUTE CRASH:", error);
