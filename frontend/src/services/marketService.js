@@ -3,8 +3,8 @@ import axios from "axios";
 
 // Create a separate API instance for market data with longer timeout
 const marketApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
-  timeout: 10000, // 10 second timeout for market data (increased from 5s)
+  baseURL: import.meta.env.VITE_API_URL,
+  timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
   }
