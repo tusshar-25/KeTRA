@@ -91,9 +91,6 @@ const Markets = () => {
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Volume
                   </th>
-                  <th className="px-4 py-3 text-center text-xs font-medium text-slate-400 uppercase tracking-wider">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-800/30">
@@ -131,19 +128,6 @@ const Markets = () => {
                     </td>
                     <td className="px-4 py-3 text-sm text-right text-slate-100 align-middle whitespace-nowrap">
                       {stock.volume ? stock.volume.toLocaleString() : "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center align-middle">
-                      <div className="flex gap-2 justify-center">
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleStockClick(stock);
-                          }}
-                          className="px-3 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-sm font-medium rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all duration-300 transform hover:scale-105 shadow-lg whitespace-nowrap"
-                        >
-                          View Details
-                        </button>
-                      </div>
                     </td>
                   </tr>
                 ))}
