@@ -1,9 +1,8 @@
 import React, { useState, useEffect, useContext } from 'react';
 import { useTrade } from '../../context/TradeContext';
-import { withdrawIPOApplication } from '../../services/ipoService';
 import { useAuth } from "../../context/AuthContext";
 import { useAlert } from "../../context/AlertContext";
-import { getIPOApplications, getIPOs, initializeAcceleratedIPOs } from "../../services/ipoService";
+import { withdrawIPOApplication, getIPOApplications, getIPOs } from '../../services/ipoService';
 import Card from "../common/Card";
 import Loader from "../common/Loader";
 
@@ -327,45 +326,10 @@ const IPOAllotmentSection = () => {
       setLoading(false);
       console.log('📱 Loading set to false, applications should render now');
       
-      // Initialize existing applications into accelerated system (non-blocking)
-      if (applicationsData.length > 0) {
-        try {
-          console.log('🚀 Starting initialization of accelerated IPOs...');
-          // Add timeout promise to prevent hanging - reduced to 3 seconds
-          const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Initialization timeout')), 3000)
-          );
-          
-          const initResponse = await Promise.race([
-            initializeAcceleratedIPOs(applicationsData),
-            timeoutPromise
-          ]);
-          
-          console.log('📥 Initialization response:', initResponse);
-          console.log('📊 Initialization response data:', initResponse.data);
-          console.log(`🚀 Initialized ${initResponse.data?.initialized || 0} applications into accelerated system`);
-          
-          // If initialization was skipped, that's okay
-          if (initResponse.data?.skipped) {
-            console.log('⏭️ Initialization skipped - applications will be processed on demand');
-          }
-        } catch (error) {
-          console.error("Failed to initialize accelerated IPOs:", error);
-          console.error("Initialization error details:", error.response?.data);
-          
-          // Show user-friendly error message
-          if (error.message === 'Initialization timeout') {
-            console.warn('⏰ IPO initialization timed out, but applications should still work');
-          } else if (error.code === 'ECONNABORTED') {
-            console.warn('⏰ IPO initialization took too long, continuing without it');
-          } else {
-            console.warn('⚠️ IPO initialization failed, continuing without it');
-          }
-          // Don't fail the whole component if initialization fails
-        }
-      } else {
-        console.log('📭 No applications to initialize');
-      }
+      // Skip initialization completely - it's causing timeout issues
+      // and isn't necessary for IPO functionality to work
+      console.log('⏭️ Skipping IPO initialization to prevent timeouts');
+      console.log(`📱 ${applicationsData.length} applications loaded successfully`);
     } catch (error) {
       console.error("Failed to fetch IPO applications:", error);
       showFallbackAlert("error", "Error", "Failed to load IPO applications");
