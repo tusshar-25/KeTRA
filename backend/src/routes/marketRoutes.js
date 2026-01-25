@@ -186,7 +186,7 @@ router.get("/stocks", async (req, res) => {
       try {
         // Add timeout to each individual stock fetch
         const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Stock fetch timeout')), 3000)
+          setTimeout(() => reject(new Error('Stock fetch timeout')), 5000)
         );
         
         const quotePromise = yf.quote(symbol, {}, { validateResult: false });
@@ -231,7 +231,7 @@ router.get("/stocks", async (req, res) => {
 
     // Wait for all stock fetches with a overall timeout
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Overall stocks fetch timeout')), 8000)
+      setTimeout(() => reject(new Error('Overall stocks fetch timeout')), 12000)
     );
     
     const stockResults = await Promise.race([
