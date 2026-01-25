@@ -35,6 +35,9 @@ const GainersLosers = () => {
             change: stock.change || 0
           })).filter(stock => stock.price > 0); // Filter out invalid data
           
+          console.log('Processed stocks:', processedStocks.length);
+          console.log('Stock percentages:', processedStocks.map(s => `${s.symbol}: ${s.percent}%`));
+          
           // Sort by percentage change
           const sortedStocks = processedStocks.sort((a, b) => b.percent - a.percent);
           
@@ -113,10 +116,10 @@ const GainersLosers = () => {
             </svg>
           </div>
           <h4 className="text-lg font-semibold text-slate-200 mb-2">
-            Market Closed
+            No Market Movers Available
           </h4>
           <p className="text-sm text-slate-400">
-            Check back during trading hours
+            {loading ? "Loading market data..." : "No significant price changes detected"}
           </p>
         </div>
       ) : (
