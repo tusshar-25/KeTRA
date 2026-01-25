@@ -3,16 +3,16 @@ import axios from "axios";
 
 export const getIPOs = (status) => {
   const q = status ? `?status=${status}` : "";
-  return api.get(`/ipo${q}`);
+  return api.get(`ipo${q}`);
 };
 
 export const getIPOApplications = () => {
-  return api.get("/ipo/applications");
+  return api.get("ipo/applications");
 };
 
 export const withdrawIPOApplication = (applicationId, symbol) => {
   // Use the correct endpoint for withdrawal
-  return api.post("/ipo/withdraw", { applicationId });
+  return api.post("ipo/withdraw", { applicationId });
 };
 
 // Initialize existing applications into accelerated system
@@ -27,5 +27,5 @@ export const initializeAcceleratedIPOs = (applications) => {
     }
   });
   
-  return customApi.post("/ipo/initialize-accelerated", { applications });
+  return customApi.post("ipo/initialize-accelerated", { applications });
 };

@@ -4,31 +4,31 @@ import api from "./api";
 export const acceleratedIPOService = {
   // Apply for IPO with accelerated timeline
   applyIPO: async (symbol, amount) => {
-    const response = await api.post("/ipo/apply", { symbol, amount });
+    const response = await api.post("ipo/apply", { symbol, amount });
     return response.data;
   },
 
   // Get IPO timeline with countdown
   getIPOTimeline: async (symbol) => {
-    const response = await api.get(`/ipo/timeline/${symbol}`);
+    const response = await api.get(`ipo/timeline/${symbol}`);
     return response.data;
   },
 
   // Check withdrawal eligibility
   checkWithdrawEligibility: async (symbol) => {
-    const response = await api.get(`/ipo/withdraw-eligibility/${symbol}`);
+    const response = await api.get(`ipo/withdraw-eligibility/${symbol}`);
     return response.data;
   },
 
   // Get all accelerated IPOs for user
   getMyAcceleratedIPOs: async () => {
-    const response = await api.get("/ipo/my-accelerated-ipos");
+    const response = await api.get("ipo/my-accelerated-ipos");
     return response.data;
   },
 
   // Withdraw funds
   withdrawFunds: async (symbol) => {
-    const response = await api.post(`/ipo/withdraw/${symbol}`);
+    const response = await api.post(`ipo/withdraw/${symbol}`);
     return response.data;
   },
 

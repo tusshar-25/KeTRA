@@ -42,22 +42,22 @@ marketApi.interceptors.response.use(
 );
 
 export const getMarketIndices = () => {
-  return api.get("/market/indices");
+  return api.get("market/indices");
 };
 
 export const getLiveStocks = (symbols) => {
-  const url = `/market/stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
+  const url = `market/stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
   return marketApi.get(url);
 };
 
 export const getSMEStocks = (symbols) => {
-  const url = `/market/sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
+  const url = `sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
   return marketApi.get(url);
 };
 
 export const buyStock = async (symbol, quantity, price) => {
   try {
-    return await api.post("/market/buy", { symbol, quantity, price });
+    return await api.post("market/buy", { symbol, quantity, price });
   } catch (error) {
     if (error.response?.status === 401) {
       throw new Error("Please login to buy stocks");
@@ -68,7 +68,7 @@ export const buyStock = async (symbol, quantity, price) => {
 
 export const sellStock = async (symbol, quantity, price) => {
   try {
-    return await api.post("/market/sell", { symbol, quantity, price });
+    return await api.post("market/sell", { symbol, quantity, price });
   } catch (error) {
     if (error.response?.status === 401) {
       throw new Error("Please login to sell stocks");
@@ -81,17 +81,17 @@ export const sellStock = async (symbol, quantity, price) => {
 };
 
 export const getPortfolio = () => {
-  return api.get("/market/portfolio");
+  return api.get("market/portfolio");
 };
 
 export const getTransactions = () => {
-  return api.get("/market/transactions");
+  return api.get("market/transactions");
 };
 
 export const getHistoricalData = (symbol, period = "1mo") => {
-  return api.get(`/market/historical/${symbol}?period=${period}`);
+  return api.get(`market/historical/${symbol}?period=${period}`);
 };
 
 export const getComprehensiveData = (symbol) => {
-  return api.get(`/market/comprehensive/${symbol}`);
+  return api.get(`market/comprehensive/${symbol}`);
 };

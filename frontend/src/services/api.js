@@ -43,7 +43,3 @@ api.interceptors.response.use(
 );
 
 export default api;
-
-// Trade APIs
-export const buyStock = (data) => api.post("/trade/buy", data);
-export const sellStock = (data) => api.post("/trade/sell", data);
