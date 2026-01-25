@@ -125,40 +125,6 @@ const Portfolio = () => {
           <WalletSummary />
         </div>
 
-        {/* Portfolio Summary */}
-        {portfolio && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6">
-              <h3 className="text-sm font-medium text-slate-400 mb-2">Total Invested</h3>
-              <p className="text-2xl font-bold text-slate-100">
-                ₹{portfolio.totalInvested?.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6">
-              <h3 className="text-sm font-medium text-slate-400 mb-2">Current Value</h3>
-              <p className="text-2xl font-bold text-slate-100">
-                ₹{portfolio.currentValue?.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6">
-              <h3 className="text-sm font-medium text-slate-400 mb-2">Total P&L</h3>
-              <p className={`text-2xl font-bold ${portfolio.totalPnL >= 0 ? "text-emerald-400" : "text-red-400"}`}>
-                {portfolio.totalPnL >= 0 ? "+" : ""}₹{portfolio.totalPnL?.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || "0.00"}
-              </p>
-            </div>
-            <div className="bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6">
-              <h3 className="text-sm font-medium text-slate-400 mb-2">Total Returns</h3>
-              <p className={`text-2xl font-bold ${portfolio.totalInvested > 0 ? (portfolio.totalPnL / portfolio.totalInvested * 100) >= 0 ? "text-emerald-400" : "text-red-400" : "text-slate-400"}`}>
-                {portfolio.totalInvested > 0 ? 
-                  (portfolio.totalPnL / portfolio.totalInvested * 100) >= 0 ? "+" : "" : ""
-                }{portfolio.totalInvested > 0 ? 
-                  ((portfolio.totalPnL / portfolio.totalInvested * 100).toFixed(2)) : "0.00"
-                }%
-              </p>
-            </div>
-          </div>
-        )}
-
         {/* Tabs */}
         <div className="bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl">
           <div className="border-b border-slate-800/50">
@@ -201,14 +167,14 @@ const Portfolio = () => {
               <div>
                 {holdings.length > 0 ? (
                   <div className="overflow-x-auto rounded-xl border border-slate-800/50 bg-gradient-to-br from-slate-900/60 to-slate-950/80 backdrop-blur-sm">
-                    <table className="w-full min-w-[600px]">
+                    <table className="w-full min-w-[500px]">
                       <thead>
                         <tr className="border-b border-slate-800/50 bg-slate-800/30">
                           <th className="text-left py-4 px-4 text-xs font-semibold text-slate-300 uppercase tracking-wider">Symbol</th>
-                          <th className="text-right py-4 px-4 text-xs font-semibold text-slate-300 uppercase tracking-wider">Qty</th>
-                          <th className="text-right py-4 px-4 text-xs font-semibold text-slate-300 uppercase tracking-wider">Avg Price</th>
-                          <th className="text-right py-4 px-4 text-xs font-semibold text-slate-300 uppercase tracking-wider">Current</th>
-                          <th className="text-right py-4 px-4 text-xs font-semibold text-slate-300 uppercase tracking-wider">P&L</th>
+                          <th className="text-right py-4 px-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">Qty</th>
+                          <th className="text-right py-4 px-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">Avg</th>
+                          <th className="text-right py-4 px-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">Current</th>
+                          <th className="text-right py-4 px-2 text-xs font-semibold text-slate-300 uppercase tracking-wider">P&L</th>
                           <th className="text-center py-4 px-4 text-xs font-semibold text-slate-300 uppercase tracking-wider">Actions</th>
                         </tr>
                       </thead>
@@ -226,19 +192,19 @@ const Portfolio = () => {
                                 </div>
                               </div>
                             </td>
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-2">
                               <div className="text-sm font-medium text-slate-100 text-right">{holding.quantity}</div>
                             </td>
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-2">
                               <div className="text-sm font-medium text-slate-100 text-right">₹{holding.avgPrice.toFixed(2)}</div>
                             </td>
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-2">
                               <div className="text-sm font-medium text-slate-100 text-right">₹{holding.currentPrice.toFixed(2)}</div>
                               <div className={`text-xs text-right ${holding.currentPrice >= holding.avgPrice ? 'text-emerald-400' : 'text-red-400'}`}>
                                 {holding.currentPrice >= holding.avgPrice ? '▲' : '▼'} {Math.abs(((holding.currentPrice - holding.avgPrice) / holding.avgPrice * 100).toFixed(2))}%
                               </div>
                             </td>
-                            <td className="py-4 px-4">
+                            <td className="py-4 px-2">
                               <div className="text-right">
                                 <div className={`text-sm font-bold ${holding.pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
                                   {holding.pnl >= 0 ? '+' : ''}₹{holding.pnl.toLocaleString("en-IN", { minimumFractionDigits: 0 })}
@@ -249,20 +215,20 @@ const Portfolio = () => {
                               </div>
                             </td>
                             <td className="py-4 px-4">
-                              <div className="flex gap-2 justify-center">
+                              <div className="flex gap-1 justify-center flex-col sm:flex-row">
                                 <button
                                   onClick={() => openOrderModal(holding, "buy")}
-                                  className="group relative px-3 py-2 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-xs font-semibold rounded-lg hover:from-emerald-700 hover:to-emerald-800 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/25 border border-emerald-500/30"
+                                  className="group relative px-2 py-1 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white text-xs font-semibold rounded hover:from-emerald-700 hover:to-emerald-800 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-emerald-500/25 border border-emerald-500/30 min-w-[0] sm:min-w-[50px]"
                                 >
                                   <span className="relative z-10">Buy</span>
-                                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-emerald-600 to-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  <div className="absolute inset-0 rounded bg-gradient-to-r from-emerald-600 to-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 </button>
                                 <button
                                   onClick={() => openOrderModal(holding, "sell")}
-                                  className="group relative px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-semibold rounded-lg hover:from-red-700 hover:to-red-800 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 border border-red-500/30"
+                                  className="group relative px-2 py-1 bg-gradient-to-r from-red-600 to-red-700 text-white text-xs font-semibold rounded hover:from-red-700 hover:to-red-800 transition-all duration-300 transform hover:scale-105 hover:shadow-lg hover:shadow-red-500/25 border border-red-500/30 min-w-[0] sm:min-w-[50px]"
                                 >
                                   <span className="relative z-10">Sell</span>
-                                  <div className="absolute inset-0 rounded-lg bg-gradient-to-r from-red-600 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                                  <div className="absolute inset-0 rounded bg-gradient-to-r from-red-600 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
                                 </button>
                               </div>
                             </td>
