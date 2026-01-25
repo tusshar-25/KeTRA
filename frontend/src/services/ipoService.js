@@ -1,4 +1,5 @@
 import api from "./api";
+import axios from "axios";
 
 export const getIPOs = (status) => {
   const q = status ? `?status=${status}` : "";
@@ -17,8 +18,7 @@ export const withdrawIPOApplication = (applicationId, symbol) => {
 // Initialize existing applications into accelerated system
 export const initializeAcceleratedIPOs = (applications) => {
   // Create a custom axios instance with longer timeout for initialization
-  const axios = require('axios');
-  const api = axios.create({
+  const customApi = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
     timeout: 30000, // 30 second timeout for initialization
     headers: {
@@ -27,5 +27,5 @@ export const initializeAcceleratedIPOs = (applications) => {
     }
   });
   
-  return api.post("/ipo/initialize-accelerated", { applications });
+  return customApi.post("/ipo/initialize-accelerated", { applications });
 };
