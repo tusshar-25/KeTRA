@@ -2,15 +2,15 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../context/AuthContext";
 import { useTrade } from "../../context/TradeContext";
-import { getLiveStocks } from "../../services/marketService";
+import { getSMEStocks } from "../../services/marketService";
 
-const DEFAULT_STOCKS = [
-  "RELIANCE.NS",
-  "TCS.NS",
-  "INFY.NS",
-  "HDFCBANK.NS",
-  "ICICIBANK.NS",
-  "SBIN.NS",
+const DEFAULT_SME_STOCKS = [
+  "VTL.NS",
+  "MOTILALOFS.NS",
+  "TIINDIA.NS",
+  "EMAMILTD.NS",
+  "GODREJIND.NS",
+  "BLUESTARCO.NS",
 ];
 
 const card = {
@@ -18,11 +18,11 @@ const card = {
   show: { opacity: 1, y: 0 },
 };
 
-const PopularStocks = () => {
+const SMEStocks = () => {
   const { isUserLoggedIn } = useAuth();
   const { buyStock: tradeBuyStock, sellStock: tradeSellStock } = useTrade();
-  const [stocks, setStocks] = useState([]);
-  const [stocksLoading, setStocksLoading] = useState(true);
+  const [smeStocks, setSMEStocks] = useState([]);
+  const [smeStocksLoading, setSMEStocksLoading] = useState(true);
   const [selectedStock, setSelectedStock] = useState(null);
   const [orderType, setOrderType] = useState("buy");
   const [quantity, setQuantity] = useState(1);
@@ -32,22 +32,19 @@ const PopularStocks = () => {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        setStocksLoading(true);
-        const stockCount = Math.max(6, window.innerWidth >= 1280 ? 12 : window.innerWidth >= 768 ? 8 : 6);
-        const stocksRes = await getLiveStocks(DEFAULT_STOCKS.slice(0, stockCount));
-        setStocks(stocksRes.data.stocks || []);
-        setMessage(""); // Clear any previous error messages
+        setSMEStocksLoading(true);
+        const smeStockCount = Math.max(6, window.innerWidth >= 1280 ? 12 : window.innerWidth >= 768 ? 8 : 6);
+        const smeStocksRes = await getSMEStocks(DEFAULT_SME_STOCKS.slice(0, smeStockCount));
+        setSMEStocks(smeStocksRes.data.stocks || []);
       } catch (error) {
-        console.error('Failed to fetch stocks:', error);
-        setMessage("Unable to load stock data");
+        setMessage(`Failed to fetch data: ${error.message}`);
       } finally {
-        setStocksLoading(false);
+        setSMEStocksLoading(false);
       }
     };
 
     fetchData();
-    // Reduce refresh interval from 30s to 2 minutes to improve performance
-    const interval = setInterval(fetchData, 120000);
+    const interval = setInterval(fetchData, 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -74,9 +71,9 @@ const PopularStocks = () => {
       setSelectedStock(null);
       setQuantity(1);
 
-      const stockCount = Math.max(6, window.innerWidth >= 1280 ? 12 : window.innerWidth >= 768 ? 8 : 6);
-      const stocksRes = await getLiveStocks(DEFAULT_STOCKS.slice(0, stockCount));
-      setStocks(stocksRes.data.stocks || []);
+      const smeStockCount = Math.max(6, window.innerWidth >= 1280 ? 12 : window.innerWidth >= 768 ? 8 : 6);
+      const smeStocksRes = await getSMEStocks(DEFAULT_SME_STOCKS.slice(0, smeStockCount));
+      setSMEStocks(smeStocksRes.data.stocks || []);
     } catch (error) {
       setMessage(`Failed to place order: ${error.message}`);
     }
@@ -94,20 +91,20 @@ const PopularStocks = () => {
 
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-green-500 to-green-600 flex items-center justify-center">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-orange-500 to-orange-600 flex items-center justify-center">
             <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
             </svg>
           </div>
           <div>
             <h3 className="text-xl font-bold text-slate-100">
-              Popular Stocks
+              SME Stocks
             </h3>
             <div className="flex items-center gap-2 text-xs text-slate-400 mt-1">
               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span>Top performing stocks</span>
+              <span>Small & Medium Enterprise</span>
             </div>
           </div>
         </div>
@@ -123,13 +120,13 @@ const PopularStocks = () => {
         </button>
       </div>
 
-      {stocksLoading ? (
+      {smeStocksLoading ? (
         <div className="flex justify-center py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-400"></div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4">
-          {stocks.map((stock) => (
+          {smeStocks.map((stock) => (
             <motion.div
               key={stock.symbol}
               variants={card}
@@ -208,7 +205,7 @@ const PopularStocks = () => {
             <span>Live data</span>
           </div>
           <span>
-            {stocks.length} stocks tracked
+            {smeStocks.length} SME stocks tracked
           </span>
         </div>
       </div>
@@ -277,4 +274,4 @@ const PopularStocks = () => {
   );
 };
 
-export default PopularStocks;
+export default SMEStocks;
