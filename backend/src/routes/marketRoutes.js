@@ -367,6 +367,39 @@ router.get("/sme-stocks", async (req, res) => {
   }
 });
 
+/**
+ * @route   GET /api/market/debug/tcs
+ * @desc    Debug endpoint to check TCS raw data
+ * @access  Public
+ */
+router.get("/debug/tcs", async (req, res) => {
+  try {
+    console.log("Debug: Fetching TCS.NS data...");
+    const q = await yf.quote("TCS.NS", {}, { validateResult: false });
+    
+    console.log("TCS.NS complete data:", JSON.stringify(q, null, 2));
+    
+    res.json({
+      symbol: q.symbol,
+      name: q.shortName || q.displayName,
+      regularMarketPrice: q.regularMarketPrice,
+      regularMarketPriceFmt: q.regularMarketPriceFmt,
+      regularMarketTime: new Date(q.regularMarketTime * 1000).toISOString(),
+      marketState: q.marketState,
+      exchange: q.fullExchangeName,
+      currency: q.currency,
+      exchangeDataDelayedBy: q.exchangeDataDelayedBy,
+      marketCap: q.marketCap,
+      ask: q.ask,
+      bid: q.bid,
+      previousClose: q.regularMarketPreviousClose
+    });
+  } catch (error) {
+    console.error("Debug TCS error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // In-memory transaction storage (for demo - replace with database in production)
 let transactions = [];
 let portfolio = {};
