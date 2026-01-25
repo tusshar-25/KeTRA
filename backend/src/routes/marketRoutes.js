@@ -196,11 +196,21 @@ router.get("/stocks", async (req, res) => {
           throw new Error("Invalid quote data");
         }
 
+        // Log raw price for debugging RELIANCE
+        if (symbol.includes('RELIANCE')) {
+          console.log(`RELIANCE raw data:`, {
+            regularMarketPrice: q.regularMarketPrice,
+            regularMarketPriceFmt: q.regularMarketPriceFmt,
+            regularMarketTime: q.regularMarketTime,
+            marketState: q.marketState
+          });
+        }
+
         return {
           symbol: q.symbol,
           name: q.shortName || q.displayName || q.symbol,
-          price: q.regularMarketPrice,
-          change: q.regularMarketChange || 0,
+          price: parseFloat(q.regularMarketPrice.toFixed(2)), // Round to 2 decimal places
+          change: parseFloat((q.regularMarketChange || 0).toFixed(2)), // Round to 2 decimal places
           percent:
             q.regularMarketChangePercent != null
               ? q.regularMarketChangePercent.toFixed(2) + "%"
