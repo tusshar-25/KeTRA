@@ -1,4 +1,5 @@
 import yahooFinance from "yahoo-finance2";
+import { isMarketOpenServer } from "../utils/marketTime.js";
 
 const yf = new yahooFinance();
 
@@ -81,6 +82,37 @@ export const getMarketOverview = async (req, res) => {
     };
 
     res.status(200).json(overview);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
+ * Get market status
+ * @route GET /api/market/status
+ * @access Public
+ */
+export const getMarketStatus = async (req, res) => {
+  try {
+    const isOpen = isMarketOpenServer();
+    const now = new Date();
+    
+    // Format current time in IST
+    const istTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    );
+
+    res.status(200).json({
+      isOpen,
+      currentTime: istTime.toISOString(),
+      marketHours: {
+        open: "09:15 AM",
+        close: "03:30 PM",
+        timezone: "IST",
+        weekdays: "Monday - Friday"
+      },
+      lastChecked: new Date().toISOString()
+    });
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

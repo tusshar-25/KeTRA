@@ -5,15 +5,21 @@ export const MARKET_HOURS = {
   closeMinute: 30,
 };
 
-const FORCE_MARKET_OPEN = false; // ← set false in production
+const FORCE_MARKET_OPEN = true; // Temporarily set to true for testing
 
 export const isMarketOpen = () => {
   if (FORCE_MARKET_OPEN) return true;
+  
+  // Use IST time for consistency with backend
   const now = new Date();
-  const day = now.getDay(); // 0 Sun, 6 Sat
+  const istTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
+  
+  const day = istTime.getDay(); // 0 Sun, 6 Sat
   if (day === 0 || day === 6) return false;
 
-  const mins = now.getHours() * 60 + now.getMinutes();
+  const mins = istTime.getHours() * 60 + istTime.getMinutes();
   const open =
     MARKET_HOURS.openHour * 60 + MARKET_HOURS.openMinute;
   const close =

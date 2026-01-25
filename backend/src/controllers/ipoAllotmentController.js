@@ -5,6 +5,95 @@ import Transaction from "../models/Transaction.js";
 import { refreshIPOData } from "../utils/ipos/index.js";
 
 /**
+ * Instant IPO process for immediate allotment and listing
+ * @route POST /api/ipo/instant-process
+ * @access Private
+ */
+export const instantIPOProcess = async (req, res) => {
+  try {
+    const { applicationId, symbol, isAllotted, listingPrice, sharesApplied, amountApplied, issuePrice } = req.body;
+    const user = req.user;
+
+    // Find the application
+    const application = await IPOAllotment.findOne({
+      _id: applicationId,
+      user: user._id
+    });
+
+    if (!application) {
+      return res.status(404).json({ message: "Application not found" });
+    }
+
+    if (isAllotted) {
+      // Process allotment
+      const profitPerShare = listingPrice - issuePrice;
+      const totalProfit = profitPerShare * sharesApplied;
+      const profitPercentage = ((profitPerShare / issuePrice) * 100).toFixed(2);
+      
+      // Update application with allotment details
+      await IPOAllotment.findByIdAndUpdate(applicationId, {
+        sharesAllotted: sharesApplied,
+        amountAllotted: amountApplied,
+        listingPrice: listingPrice,
+        profitLoss: totalProfit,
+        profitLossPercentage: parseFloat(profitPercentage),
+        status: 'allotted',
+        allotmentDate: new Date(),
+        listingDate: new Date()
+      });
+
+      // Create IPO holding
+      await IPOHolding.create({
+        user: user._id,
+        ipoId: application.ipoId,
+        ipoSymbol: symbol,
+        ipoName: application.ipoName,
+        applicationId: application._id,
+        sharesAllotted: sharesApplied,
+        sharesApplied: sharesApplied,
+        allotmentPrice: issuePrice,
+        totalInvestment: amountApplied,
+        blockedAmount: amountApplied,
+        listingPrice: listingPrice,
+        currentValue: sharesApplied * listingPrice,
+        profitLoss: totalProfit,
+        profitLossPercentage: parseFloat(profitPercentage),
+        status: 'listed',
+        allotmentDate: new Date(),
+        listingDate: new Date()
+      });
+
+      res.status(200).json({
+        message: "IPO instantly allotted and listed",
+        status: 'allotted',
+        sharesAllotted: sharesApplied,
+        listingPrice: listingPrice,
+        profitLoss: totalProfit,
+        profitLossPercentage: parseFloat(profitPercentage)
+      });
+    } else {
+      // Process non-allotment
+      await IPOAllotment.findByIdAndUpdate(applicationId, {
+        sharesAllotted: 0,
+        amountAllotted: 0,
+        refundAmount: amountApplied,
+        status: 'not_allotted',
+        allotmentDate: new Date()
+      });
+
+      res.status(200).json({
+        message: "IPO not allotted",
+        status: 'not_allotted',
+        refundAmount: amountApplied
+      });
+    }
+  } catch (error) {
+    console.error("INSTANT IPO PROCESS ERROR:", error);
+    res.status(500).json({ message: error.message });
+  }
+};
+
+/**
  * Apply for IPO with proper allotment tracking
  * @route POST /api/ipo/apply
  * @access Private
@@ -121,6 +210,7 @@ export const getIPOApplications = async (req, res) => {
         status: app.status,
         applicationDate: app.applicationDate,
         allotmentDate: app.allotmentDate,
+        listingDate: app.listingDate,
         listingPrice: app.listingPrice,
         profitLoss: app.profitLoss,
         profitLossPercentage: app.profitLossPercentage,
@@ -432,72 +522,88 @@ export const withdrawIPOApplication = async (req, res) => {
     // Check withdrawal rules based on application status
     const currentDate = new Date();
     
-    if (application.status === 'pending') {
-      // Cannot withdraw pending applications before allotment
-      return res.status(400).json({ 
-        message: "Cannot withdraw application before allotment announcement. Wait for allotment results." 
-      });
-    }
-
-    if (application.status === 'allotted') {
-      // Cannot withdraw allotted applications before listing day
-      const freshIPOData = refreshIPOData();
-      const ipo = freshIPOData.closed.find(i => i.symbol === application.ipoSymbol);
-      
-      if (!ipo) {
-        return res.status(400).json({ message: "IPO details not found" });
-      }
-
-      const listingDate = new Date(ipo.listingDate);
-      if (currentDate < listingDate) {
-        return res.status(400).json({ 
-          message: `Cannot withdraw before listing day. Listing date: ${ipo.listingDate}` 
-        });
-      }
-    }
-
-    if (application.status === 'not_allotted') {
-      // Can withdraw non-allotted applications after allotment announcement
-      if (!application.allotmentDate) {
-        return res.status(400).json({ 
-          message: "Cannot withdraw before allotment announcement" 
-        });
-      }
-    }
-
+    // Allow withdrawal for all processed statuses with instant processing
+    // Remove all countdown restrictions
+    console.log(`💸 Withdrawal request for application: ${application.ipoSymbol}, status: ${application.status}`);
+    
     if (application.status === 'refunded' || application.isWithdrawn) {
       return res.status(400).json({ message: "Application already withdrawn" });
     }
 
-    // Refund the blocked amount
-    const userRecord = await User.findById(user._id);
-    userRecord.balance += application.amountApplied;
-    await userRecord.save();
+    if (application.status === 'listed' || application.status === 'allotted') {
+      // For listed or allotted applications, return blocked amount + profit/loss
+      console.log(`💰 Processing withdrawal for ${application.ipoSymbol}:`);
+      console.log(`  - Status: ${application.status}`);
+      console.log(`  - Amount Applied: ₹${application.amountApplied}`);
+      console.log(`  - Profit/Loss: ₹${application.profitLoss || 0}`);
+      console.log(`  - Total Amount: ₹${application.amountApplied + (application.profitLoss || 0)}`);
+      
+      const totalAmount = application.amountApplied + (application.profitLoss || 0);
+      
+      // Refund the total amount (blocked amount + profit/loss)
+      const userRecord = await User.findById(user._id);
+      console.log(`  - User Balance Before: ₹${userRecord.balance}`);
+      userRecord.balance += totalAmount;
+      await userRecord.save();
+      console.log(`  - User Balance After: ₹${userRecord.balance}`);
 
-    // Create refund transaction
-    await Transaction.create({
-      user: user._id,
-      type: "IPO_WITHDRAWAL",
-      symbol: application.ipoSymbol,
-      quantity: application.sharesApplied,
-      price: application.amountApplied / application.sharesApplied,
-      amount: application.amountApplied,
-      description: `IPO application withdrawal for ${application.ipoName}`
-    });
+      // Create refund transaction
+      await Transaction.create({
+        user: user._id,
+        type: "IPO_WITHDRAWAL",
+        symbol: application.ipoSymbol,
+        quantity: application.sharesApplied,
+        price: totalAmount / application.sharesApplied,
+        amount: totalAmount,
+        description: `IPO withdrawal for ${application.ipoName}: ₹${application.amountApplied} + P&L ₹${application.profitLoss || 0}`
+      });
 
-    // Mark application as withdrawn
-    await IPOAllotment.findByIdAndUpdate(applicationId, {
-      status: 'refunded',
-      refundAmount: application.amountApplied,
-      isWithdrawn: true,
-      withdrawalDate: new Date()
-    });
+      // Mark application as withdrawn
+      await IPOAllotment.findByIdAndUpdate(applicationId, {
+        status: 'refunded',
+        refundAmount: totalAmount,
+        isWithdrawn: true,
+        withdrawalDate: new Date()
+      });
 
-    res.status(200).json({
-      message: "IPO application withdrawn successfully",
-      refundAmount: application.amountApplied,
-      balance: userRecord.balance
-    });
+      res.status(200).json({
+        message: "IPO application withdrawn successfully",
+        refundAmount: totalAmount,
+        blockedAmount: application.amountApplied,
+        profitLoss: application.profitLoss || 0,
+        balance: userRecord.balance
+      });
+    } else {
+      // For non-allotted, pending, or allotted applications, refund only the blocked amount
+      const userRecord = await User.findById(user._id);
+      userRecord.balance += application.amountApplied;
+      await userRecord.save();
+
+      // Create refund transaction
+      await Transaction.create({
+        user: user._id,
+        type: "IPO_WITHDRAWAL",
+        symbol: application.ipoSymbol,
+        quantity: application.sharesApplied,
+        price: application.amountApplied / application.sharesApplied,
+        amount: application.amountApplied,
+        description: `IPO application withdrawal for ${application.ipoName}`
+      });
+
+      // Mark application as withdrawn
+      await IPOAllotment.findByIdAndUpdate(applicationId, {
+        status: 'refunded',
+        refundAmount: application.amountApplied,
+        isWithdrawn: true,
+        withdrawalDate: new Date()
+      });
+
+      res.status(200).json({
+        message: "IPO application withdrawn successfully",
+        refundAmount: application.amountApplied,
+        balance: userRecord.balance
+      });
+    }
   } catch (error) {
     console.error("WITHDRAW APPLICATION ERROR:", error);
     res.status(500).json({ message: error.message });

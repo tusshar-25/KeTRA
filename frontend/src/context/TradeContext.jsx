@@ -44,15 +44,15 @@ export const TradeProvider = ({ children }) => {
    * @param {Object} params - Stock symbol, quantity, and price
    */
   const buyStock = async ({ symbol, quantity, price }) => {
-    // Check market status
-    if (!isMarketOpen()) {
-      showAlert({
-        type: "error",
-        title: "Market Closed",
-        message: "Trading is only allowed during market hours (9:15 AM - 3:30 PM IST on weekdays)"
-      });
-      throw new Error("MARKET_CLOSED");
-    }
+    // Temporarily bypass market status check for testing
+    // if (!isMarketOpen()) {
+    //   showAlert({
+    //     type: "error",
+    //     title: "Market Closed",
+    //     message: "Trading is only allowed during market hours (9:15 AM - 3:30 PM IST on weekdays)"
+    //   });
+    //   throw new Error("MARKET_CLOSED");
+    // }
 
     const cost = quantity * price;
 
@@ -68,6 +68,8 @@ export const TradeProvider = ({ children }) => {
 
     try {
       // Call backend API to buy stock
+      console.log('Buying stock:', { symbol, quantity, price }); // Debug log
+      console.log('Stock object details:', { symbol: typeof symbol, quantity: typeof quantity, price: typeof price }); // Debug types
       const response = await apiBuyStock(symbol, quantity, price);
       
       // Show success alert with auto-dismiss
@@ -115,15 +117,15 @@ export const TradeProvider = ({ children }) => {
    * @param {Object} params - Stock symbol, quantity, and price
    */
   const sellStock = async ({ symbol, quantity, price }) => {
-    // Check market status
-    if (!isMarketOpen()) {
-      showAlert({
-        type: "error",
-        title: "Market Closed",
-        message: "Trading is only allowed during market hours (9:15 AM - 3:30 PM IST on weekdays)"
-      });
-      throw new Error("MARKET_CLOSED");
-    }
+    // Temporarily bypass market status check for testing
+    // if (!isMarketOpen()) {
+    //   showAlert({
+    //     type: "error",
+    //     title: "Market Closed",
+    //     message: "Trading is only allowed during market hours (9:15 AM - 3:30 PM IST on weekdays)"
+    //   });
+    //   throw new Error("MARKET_CLOSED");
+    // }
 
     // Get fresh portfolio data to ensure we have the latest holdings
     try {

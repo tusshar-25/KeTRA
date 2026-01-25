@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+﻿import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { getLiveStocks } from "../services/marketService";
+import { getLiveStocks, getHistoricalData, getComprehensiveData } from "../services/marketService";
 import { motion } from "framer-motion";
 import { useTrade } from "../context/TradeContext";
 import { useAlert } from "../context/AlertContext";
@@ -20,53 +20,7 @@ const StockDetails = () => {
   const [orderType, setOrderType] = useState("buy");
   const [quantity, setQuantity] = useState(1);
   const [orderMessage, setOrderMessage] = useState("");
-
-  // Generate mock historical data for chart
-  const generateMockHistoricalData = (currentStock) => {
-    const data = [];
-    const basePrice = currentStock.price;
-    const days = 30;
-    
-    // Generate realistic price movements with growth patterns
-    let currentPrice = basePrice;
-    let trend = Math.random() > 0.5 ? 1 : -1; // Overall trend direction
-    
-    for (let i = 0; i < days; i++) {
-      // Create realistic price movements
-      const dayTrend = Math.random() > 0.7 ? 1 : -1; // Daily trend
-      const volatility = Math.random() * 0.03 + 0.01; // Base volatility
-      const momentum = Math.random() > 0.5 ? 1 : -1; // Momentum factor
-      
-      // Calculate price movement
-      const trendStrength = Math.abs(trend + dayTrend) > 1 ? 0.8 : 1.2; // Trend consistency
-      const priceChange = (momentum * volatility * trendStrength) + (Math.random() - 0.5) * volatility;
-      
-      currentPrice = currentPrice * (1 + priceChange);
-      
-      // Generate OHLC data
-      const open = currentPrice * (1 + (Math.random() - 0.5) * volatility * 0.5);
-      const close = currentPrice;
-      const high = Math.max(open, close) * (1 + Math.random() * volatility);
-      const low = Math.min(open, close) * (1 - Math.random() * volatility);
-      const volume = Math.floor(Math.random() * 2000000) + 800000;
-      
-      data.push({
-        date: new Date(Date.now() - (days - i) * 24 * 60 * 60 * 1000).toISOString(),
-        open: parseFloat(open.toFixed(2)),
-        high: parseFloat(high.toFixed(2)),
-        low: parseFloat(low.toFixed(2)),
-        close: parseFloat(close.toFixed(2)),
-        volume: volume,
-        change: parseFloat((close - basePrice).toFixed(2)),
-        changePercent: parseFloat(((close - basePrice) / basePrice * 100).toFixed(2)),
-        trend: trend > 0 ? 1 : -1,
-        priceMovement: priceChange > 0 ? "up" : "down",
-        growth: parseFloat(((currentPrice / basePrice - 1) * 100).toFixed(2))
-      });
-    }
-    
-    return data;
-  };
+  const [comprehensiveData, setComprehensiveData] = useState(null);
 
   useEffect(() => {
     const fetchStockData = async () => {
@@ -76,14 +30,27 @@ const StockDetails = () => {
         
         // Fetch current stock data
         const stocksResponse = await getLiveStocks([symbol]);
-        const currentStock = stocksResponse.data.stocks.find(s => s.symbol === symbol);
+        const currentStock = stocksResponse.data.stocks?.find(s => s.symbol === symbol);
         
         if (currentStock) {
           setStock(currentStock);
           
-          // Generate mock historical data for chart
-          const mockHistoricalData = generateMockHistoricalData(currentStock);
-          setHistoricalData(mockHistoricalData);
+          // Fetch real historical data for chart
+          try {
+            const historicalResponse = await getHistoricalData(symbol, "1mo");
+            setHistoricalData(historicalResponse.data.data || []);
+          } catch (histError) {
+            console.warn("Failed to fetch historical data, using fallback:", histError.message);
+            setHistoricalData([]);
+          }
+
+          // Fetch comprehensive real market data
+          try {
+            const comprehensiveResponse = await getComprehensiveData(symbol);
+            setComprehensiveData(comprehensiveResponse.data);
+          } catch (compError) {
+            console.warn("Failed to fetch comprehensive data:", compError.message);
+          }
         }
       } catch (err) {
         console.error("Failed to fetch stock data:", err);
@@ -92,7 +59,7 @@ const StockDetails = () => {
         setLoading(false);
       }
     };
-
+    
     fetchStockData();
   }, [symbol]);
 
@@ -200,7 +167,7 @@ const StockDetails = () => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-1 xl:grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Stock Info Panel */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -225,174 +192,261 @@ const StockDetails = () => {
                 </div>
               </div>
             </div>
-
             {/* Price and Change Row */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-6">
               {/* Current Price Card */}
-              <div className="flex-1 bg-gradient-to-r from-blue-500/20 via-purple-500/10 to-pink-500/20 rounded-xl p-5 border border-blue-500/30 shadow-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-base lg:text-lg font-medium">Current Price</span>
-                  <span className="text-2xl lg:text-1xl font-bold text-slate-100">₹{stock?.price?.toFixed(2)}</span>
+              <div className="bg-gradient-to-r from-blue-600/20 to-blue-500/10 rounded-2xl p-6 border border-blue-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col space-y-2">
+                  <span className="text-blue-300 text-sm font-medium uppercase tracking-wide">Current Price</span>
+                  <span className="text-3xl font-bold text-white">₹{stock?.price?.toFixed(2)}</span>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full animate-pulse ${stock?.positive ? "bg-emerald-400" : "bg-red-400"}`}></div>
+                    <span className="text-xs text-slate-400">Live</span>
+                  </div>
                 </div>
               </div>
 
               {/* Day Change Card */}
-              <div className={`flex-1 bg-gradient-to-r ${stock?.positive ? 'from-emerald-500/20 via-green-500/10 to-emerald-500/20' : 'from-red-500/20 via-pink-500/10 to-red-500/20'} rounded-xl p-5 border ${stock?.positive ? 'border-emerald-500/30' : 'border-red-500/30'} shadow-lg`}>
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-base lg:text-lg font-medium">Day Change</span>
-                  <span className={`text-xl lg:text-base font-bold ${stock?.positive ? "text-emerald-400" : "text-red-400"}`}>
-                    {stock?.positive ? "+" : ""}₹{Math.abs(stock?.change || 0).toFixed(2)} ({stock?.positive ? "+" : ""}{stock?.percent || 0}%)
-                  </span>
+              <div className={`bg-gradient-to-r ${stock?.positive ? 'from-emerald-600/20 to-emerald-500/10' : 'from-red-600/20 to-red-500/10'} rounded-2xl p-6 border ${stock?.positive ? 'border-emerald-500/30' : 'border-red-500/30'} shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105`}>
+                <div className="flex flex-col space-y-2">
+                  <span className={`${stock?.positive ? "text-emerald-300" : "text-red-300"} text-sm font-medium uppercase tracking-wide`}>Day Change</span>
+                  <div className="flex items-baseline space-x-2">
+                    <span className={`text-2xl font-bold ${stock?.positive ? "text-emerald-400" : "text-red-400"}`}>
+                      {stock?.positive ? "↑" : "↓"}₹{Math.abs(stock?.change || 0).toFixed(2)}
+                    </span>
+                    <span className={`text-sm font-semibold ${stock?.positive ? "text-emerald-400" : "text-red-400"}`}>
+                      ({stock?.positive ? "+" : ""}{stock?.percent || 0}%)
+                    </span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <div className={`w-2 h-2 rounded-full ${stock?.positive ? "bg-emerald-400" : "bg-red-400"}`}></div>
+                    <span className="text-xs text-slate-400">Today</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Volume and Market Cap Row */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-4 mb-6">
               {/* Volume Card */}
-              <div className="flex-1 bg-slate-800/50 rounded-xl p-5 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:shadow-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-base lg:text-lg font-medium">Volume</span>
-                  <span className="text-lg lg:text-lg font-semibold text-slate-100">
-                    {stock?.volume ? (stock.volume > 1000000 ? `${(stock.volume/1000000).toFixed(1)}M` : stock.volume.toLocaleString()) : "N/A"}
+              <div className="bg-gradient-to-r from-purple-600/20 to-purple-500/10 rounded-2xl p-6 border border-purple-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col space-y-2">
+                  <span className="text-purple-300 text-sm font-medium uppercase tracking-wide">Volume</span>
+                  <span className="text-2xl font-bold text-white">
+                    {comprehensiveData?.volume ? (comprehensiveData?.volume > 1000000 ? `${(comprehensiveData?.volume/1000000).toFixed(1)}M` : comprehensiveData?.volume.toLocaleString()) : "N/A"}
                   </span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 rounded-full bg-purple-400"></div>
+                    <span className="text-xs text-slate-400">24h</span>
+                  </div>
                 </div>
               </div>
 
               {/* Market Cap Card */}
-              <div className="flex-1 bg-slate-800/50 rounded-xl p-5 border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300 hover:shadow-lg">
-                <div className="flex justify-between items-center">
-                  <span className="text-slate-300 text-base lg:text-lg font-medium">Market Cap</span>
-                  <span className="text-lg lg:text-lg font-semibold text-slate-100">
-                    {stock?.marketCap ? `₹${(stock.marketCap / 10000000).toFixed(2)}L` : "N/A"}
+              <div className="bg-gradient-to-r from-orange-600/20 to-orange-500/10 rounded-2xl p-6 border border-orange-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                <div className="flex flex-col space-y-2">
+                  <span className="text-orange-300 text-sm font-medium uppercase tracking-wide">Market Cap</span>
+                  <span className="text-2xl font-bold text-white">
+                    {comprehensiveData?.marketCap ? `₹${(comprehensiveData.marketCap / 10000000).toFixed(2)}Cr` : "N/A"}
                   </span>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 rounded-full bg-orange-400"></div>
+                    <span className="text-xs text-slate-400">Total</span>
+                  </div>
                 </div>
               </div>
             </div>
 
             {/* Company Details */}
-            <div className="lg:col-span-2 bg-slate-800/50 rounded-xl p-4 lg:p-5 border border-slate-700/50">
+            <div className="space-y-4">
               <h3 className="text-slate-300 text-base lg:text-lg mb-4 font-medium">Company Details</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2 gap-4">
-                <div className="flex justify-between items-center py-3 px-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-400 text-sm lg:text-base">Sector</span>
-                  <span className="text-slate-100 font-medium text-sm lg:text-base bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
-                    {stock?.sector || "Technology"}
-                  </span>
+              <div className="grid grid-cols-2 gap-4">
+                {/* Sector Card */}
+                <div className="bg-gradient-to-r from-cyan-600/20 to-cyan-500/10 rounded-2xl p-4 border border-cyan-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <div className="flex flex-col space-y-2">
+                    <span className="text-cyan-300 text-xs font-medium uppercase tracking-wide">Sector</span>
+                    <span className="text-white font-semibold text-sm bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
+                      {stock?.sector || "Technology"}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between items-center py-3 px-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-400 text-sm lg:text-base">Industry</span>
-                  <span className="text-slate-100 font-medium text-sm lg:text-base bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
-                    {stock?.industry || "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-3 px-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-400 text-sm lg:text-base">Exchange</span>
-                  <span className="text-slate-100 font-medium text-sm lg:text-base bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
-                    {stock?.exchange || "NSE"}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center py-3 px-3 bg-slate-700/30 rounded-lg">
-                  <span className="text-slate-400 text-sm lg:text-base">Market Type</span>
-                  <span className="text-slate-100 font-medium text-sm lg:text-base bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 rounded-full">
-                    {stock?.marketType || "Equity"}
-                  </span>
-                </div>
+                {/* Industry Card */}
+                <div className="bg-gradient-to-r from-indigo-600/20 to-indigo-500/10 rounded-2xl p-4 border border-indigo-500/30 shadow-xl hover:shadow-2xl transition-all duration-300 hover:scale-105">
+                  <div className="flex flex-col space-y-2">
+                    <span className="text-indigo-300 text-xs font-medium uppercase tracking-wide">Industry</span>
+                    <span className="text-white font-semibold text-sm bg-gradient-to-r from-slate-800 to-slate-700 px-3 py-1.5 rounded-full border border-slate-600">
+                      {stock?.industry || "N/A"}
+                    </span>
+                  </div>
                 </div>
               </div>
-              
-              {/* Buy/Sell Buttons */}
-              <div className="sm:col-span-2 lg:col-span-3 pt-4">
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => openOrderModal("buy")}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-600 text-white font-semibold rounded-xl hover:from-emerald-700 hover:via-emerald-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-xl flex items-center justify-center"
-                  >
-                    Buy
-                  </button>
-                  <button
-                    onClick={() => openOrderModal("sell")}
-                    className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 via-red-500 to-pink-600 text-white font-semibold rounded-xl hover:from-red-700 hover:via-red-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-xl flex items-center justify-center"
-                  >
-                    Sell
-                  </button>
-                </div>
+            </div>
+
+            {/* Buy/Sell Buttons */}
+            <div className="sm:col-span-2 lg:col-span-3 pt-4">
+              <div className="flex gap-3">
+                <button
+                  onClick={() => openOrderModal("buy")}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-emerald-600 via-emerald-500 to-green-600 text-white font-semibold rounded-xl hover:from-emerald-700 hover:via-emerald-600 hover:to-green-700 transition-all duration-300 transform hover:scale-105 shadow-xl flex items-center justify-center"
+                >
+                  Buy
+                </button>
+                <button
+                  onClick={() => openOrderModal("sell")}
+                  className="flex-1 px-4 py-3 bg-gradient-to-r from-red-600 via-red-500 to-pink-600 text-white font-semibold rounded-xl hover:from-red-700 hover:via-red-600 hover:to-pink-700 transition-all duration-300 transform hover:scale-105 shadow-xl flex items-center justify-center"
+                >
+                  Sell
+                </button>
               </div>
-            </motion.div>
+            </div>
+          </motion.div>
 
           {/* Chart Panel */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="lg:col-span-2 xl:col-span-3 bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6"
+            className="lg:col-span-1 bg-gradient-to-br from-slate-900/80 to-slate-950/90 border border-slate-800/50 backdrop-blur-xl rounded-2xl p-6 shadow-2xl"
           >
-            <div className="mb-6">
-              <h2 className="text-xl font-semibold text-slate-100">Price Chart</h2>
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+              <div>
+                <h2 className="text-2xl font-bold text-white mb-2">Price Analysis</h2>
+                <p className="text-slate-400 text-sm">30-day performance with OHLC data</p>
+              </div>
+              <div className="flex items-center space-x-4">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-emerald-400 rounded-full animate-pulse shadow-lg shadow-emerald-400/50"></div>
+                  <span className="text-sm text-slate-300 font-medium">Live</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-3 bg-blue-400 rounded-full"></div>
+                  <span className="text-sm text-slate-300 font-medium">30 Days</span>
+                </div>
+              </div>
             </div>
 
-            {/* Price Chart */}
-            <div className="max-lg:h-[500px] lg:h-[500px]  lg:w-[400px] bg-slate-800/50 rounded-lg p-4">
-              {historicalData.length > 0 ? (
+            {/* Chart Legend */}
+            <div className="flex justify-center mb-4">
+              <div className="flex items-center space-x-6 text-xs text-slate-400">
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-0.5 bg-blue-500 rounded-full"></div>
+                  <span>Close Price</span>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <div className="w-3 h-0.5 bg-amber-500 rounded-full" style={{ borderStyle: 'dashed' }}></div>
+                  <span>Open Price</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Enhanced Price Chart */}
+            <div className="bg-gradient-to-br from-slate-800/50 to-slate-900/70 rounded-2xl p-6 shadow-2xl border border-slate-700/50 hover:border-slate-600/50 transition-all duration-300">
+              <div className="h-[300px] sm:h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={historicalData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <AreaChart data={historicalData} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                    <defs>
+                      <linearGradient id="colorPrice" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="colorVolume" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.6}/>
+                        <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#334155" strokeOpacity={0.3} />
                     <XAxis 
                       dataKey="date" 
-                      stroke="#9ca3af"
-                      tick={{ fontSize: 10 }}
-                      tickFormatter={(value) => new Date(value).toLocaleDateString()}
+                      stroke="#64748b"
+                      tick={{ fill: '#94a3b8', fontSize: 10 }}
+                      tickFormatter={(value) => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                     />
                     <YAxis 
-                      stroke="#9ca3af"
-                      tick={{ fontSize: 10 }}
-                      domain={['dataMin - 50', 'dataMax + 50']}
+                      yAxisId="price"
+                      stroke="#64748b"
+                      tick={{ fill: '#94a3b8', fontSize: 10 }}
+                      tickFormatter={(value) => `₹${value}`}
+                      domain={['dataMin - 5', 'dataMax + 5']}
+                    />
+                    <YAxis 
+                      yAxisId="volume"
+                      orientation="right"
+                      stroke="#64748b"
+                      tick={{ fill: '#94a3b8', fontSize: 10 }}
+                      tickFormatter={(value) => value >= 1000000 ? `${(value/1000000).toFixed(1)}M` : value.toLocaleString()}
                     />
                     <Tooltip 
                       contentStyle={{ 
                         backgroundColor: '#1e293b', 
-                        border: '1px solid #374151',
-                        borderRadius: '8px'
+                        border: '1px solid #334155', 
+                        borderRadius: '12px',
+                        boxShadow: '0 10px 25px rgba(0,0,0,0.3)'
                       }}
-                      labelStyle={{ color: '#9ca3af' }}
-                      formatter={(value, name) => [
-                        `₹${value.toFixed(2)}`,
-                        name === 'close' ? 'Price' : name
-                      ]}
-                      labelFormatter={(value) => new Date(value).toLocaleDateString()}
+                      labelStyle={{ color: '#cbd5e1', fontWeight: 'bold' }}
+                      formatter={(value, name) => {
+                        if (name === 'Close Price') return [`₹${value.toFixed(2)}`, 'Close'];
+                        if (name === 'Open Price') return [`₹${value.toFixed(2)}`, 'Open'];
+                        if (name === 'High Price') return [`₹${value.toFixed(2)}`, 'High'];
+                        if (name === 'Low Price') return [`₹${value.toFixed(2)}`, 'Low'];
+                        if (name === 'Volume') return [value >= 1000000 ? `${(value/1000000).toFixed(1)}M` : value.toLocaleString(), 'Volume'];
+                        return [value, name];
+                      }}
+                      labelFormatter={(value) => new Date(value).toLocaleDateString('en-US', { 
+                        weekday: 'short', 
+                        month: 'short', 
+                        day: 'numeric' 
+                      })}
                     />
-                    <Area
-                      type="monotone"
-                      dataKey="close"
-                      stroke="#10b981"
+                    <Area 
+                      yAxisId="price"
+                      type="monotone" 
+                      dataKey="close" 
+                      stroke="#3b82f6" 
+                      fillOpacity={1} 
+                      fill="url(#colorPrice)" 
                       strokeWidth={2}
-                      fill="#10b981"
-                      fillOpacity={0.1}
+                      dot={false}
+                      activeDot={{ r: 5, fill: '#3b82f6', stroke: '#fff', strokeWidth: 2 }}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="high"
-                      stroke="#ef4444"
+                    <Area 
+                      yAxisId="price"
+                      type="monotone" 
+                      dataKey="open" 
+                      stroke="#f59e0b" 
+                      fillOpacity={0} 
                       strokeWidth={1}
+                      strokeDasharray="5 5"
                       dot={false}
                     />
-                    <Line
-                      type="monotone"
-                      dataKey="low"
-                      stroke="#3b82f6"
+                    <Area 
+                      yAxisId="volume"
+                      type="monotone" 
+                      dataKey="volume" 
+                      stroke="#8b5cf6" 
+                      fillOpacity={0.3} 
+                      fill="url(#colorVolume)" 
                       strokeWidth={1}
                       dot={false}
                     />
                   </AreaChart>
                 </ResponsiveContainer>
-              ) : (
-                <div className="flex items-center justify-center h-full text-slate-400">
-                  <div className="text-center">
-                    <div className="text-lg mb-2">Loading chart data...</div>
-                    <div className="text-sm">Historical data will appear here</div>
+              </div>
+              
+              {/* Chart Stats */}
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                  <div className="text-xs text-slate-400 mb-1">Today's High</div>
+                  <div className="text-sm font-bold text-emerald-400">
+                    ₹{comprehensiveData?.dayHigh || "N/A"}
                   </div>
                 </div>
-              )}
+                <div className="bg-slate-800/50 rounded-xl p-3 border border-slate-700/50">
+                  <div className="text-xs text-slate-400 mb-1">Today's Low</div>
+                  <div className="text-sm font-bold text-red-400">
+                    ₹{comprehensiveData?.dayLow || "N/A"}
+                  </div>
+                </div>
+              </div>
             </div>
           </motion.div>
 
@@ -401,7 +455,7 @@ const StockDetails = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.2 }}
-            className="lg:col-span-3 xl:col-span-4 bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6"
+            className="lg:col-span-2 bg-gradient-to-br from-slate-900/60 to-slate-950/80 border border-slate-800/50 backdrop-blur-sm rounded-xl p-6"
           >
             <h2 className="text-xl font-semibold text-slate-100 mb-6">Detailed Information</h2>
             
@@ -413,37 +467,49 @@ const StockDetails = () => {
                   <div>
                     <div className="text-slate-400 text-sm lg:text-base mb-1">52 Week High</div>
                     <div className="text-xl lg:text-2xl font-bold text-emerald-400">
-                      ₹{(stock.weekHigh52 || (stock.price * 1.2)).toFixed(2)}
+                      ₹{(comprehensiveData?.weekHigh52 || (stock.price * 1.2)).toFixed(2)}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-400 text-sm lg:text-base mb-1">52 Week Low</div>
                     <div className="text-xl lg:text-2xl font-bold text-red-400">
-                      ₹{(stock.weekLow52 || (stock.price * 0.8)).toFixed(2)}
+                      ₹{(comprehensiveData?.weekLow52 || (stock.price * 0.8)).toFixed(2)}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 text-sm lg:text-base mb-1">Today's High</div>
+                    <div className="text-xl lg:text-2xl font-bold text-emerald-400">
+                      ₹{comprehensiveData?.dayHigh || "N/A"}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="text-slate-400 text-sm lg:text-base mb-1">Today's Low</div>
+                    <div className="text-xl lg:text-2xl font-bold text-red-400">
+                      ₹{comprehensiveData?.dayLow || "N/A"}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-400 text-sm lg:text-base mb-1">P/E Ratio</div>
                     <div className="text-xl lg:text-2xl font-bold text-slate-100">
-                      {stock.peRatio || "22.5"}
+                      {comprehensiveData?.peRatio || "22.5"}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-400 text-sm lg:text-base mb-1">EPS</div>
                     <div className="text-xl lg:text-2xl font-bold text-slate-100">
-                      ₹{stock.eps || "45.2"}
+                      ₹{comprehensiveData?.eps || "45.2"}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-400 text-sm lg:text-base mb-1">Book Value</div>
                     <div className="text-xl lg:text-2xl font-bold text-slate-100">
-                      ₹{(stock.bookValue || (stock.price * 0.9)).toFixed(2)}
+                      ₹{(comprehensiveData?.bookValue || (stock.price * 0.9)).toFixed(2)}
                     </div>
                   </div>
                   <div>
                     <div className="text-slate-400 text-sm lg:text-base mb-1">Dividend Yield</div>
                     <div className="text-xl lg:text-2xl font-bold text-emerald-400">
-                      {stock.dividendYield || "1.2"}%
+                      {comprehensiveData?.dividendYield || "1.2"}%
                     </div>
                   </div>
                 </div>
@@ -464,13 +530,13 @@ const StockDetails = () => {
                     <div>
                       <div className="text-slate-400 text-sm lg:text-base mb-1">Average Volume</div>
                       <div className="text-xl lg:text-2xl font-bold text-slate-100">
-                        {(stock.avgVolume || Math.floor(Math.random() * 1000000 + 500000)).toLocaleString()}
+                        {(comprehensiveData?.avgVolume || Math.floor(Math.random() * 1000000 + 500000)).toLocaleString()}
                       </div>
                     </div>
                     <div>
                       <div className="text-slate-400 text-sm lg:text-base mb-1">Beta</div>
                       <div className="text-xl lg:text-2xl font-bold text-slate-100">
-                        {stock.beta || "1.2"}
+                        {comprehensiveData?.beta || "1.2"}
                       </div>
                     </div>
                     <div>
@@ -518,30 +584,30 @@ const StockDetails = () => {
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex items-center">
-                          <div className={`w-2 h-3 rounded-full mr-4 shadow-lg animate-pulse ${(stock.riskLevel || 'Medium') === 'Low' ? 'bg-emerald-400 shadow-emerald-400/50' : (stock.riskLevel || 'Medium') === 'High' ? 'bg-red-400 shadow-red-400/50' : 'bg-yellow-400 shadow-yellow-400/50'}`}></div>
+                          <div className={`w-2 h-3 rounded-full mr-4 shadow-lg animate-pulse ${(comprehensiveData?.riskLevel || 'Medium') === 'Low' ? 'bg-emerald-400 shadow-emerald-400/50' : (comprehensiveData?.riskLevel || 'Medium') === 'High' ? 'bg-red-400 shadow-red-400/50' : 'bg-yellow-400 shadow-yellow-400/50'}`}></div>
                           <div>
                             <span className="text-slate-200 text-sm font-semibold">Risk Level</span>
                             <div className="text-xs text-slate-400 mt-1">Assessment based on volatility & market trends</div>
                           </div>
                         </div>
                         <div className="flex items-center">
-                          <span className={`px-5 py-2 rounded-full text-sm font-bold border-2 transition-all duration-300 group-hover:scale-105 flex items-center justify-center ${(stock.riskLevel || 'Medium') === 'Low' ? 'bg-emerald-500/30 text-emerald-400 border-emerald-500/50 shadow-emerald-500/30' : (stock.riskLevel || 'Medium') === 'High' ? 'bg-red-500/30 text-red-400 border-red-500/50 shadow-red-500/30' : 'bg-yellow-500/30 text-yellow-400 border-yellow-500/50'}`}>
-                            {(stock.riskLevel || 'Medium') === 'Low' && (
+                          <span className={`px-5 py-2 rounded-full text-sm font-bold border-2 transition-all duration-300 group-hover:scale-105 flex items-center justify-center ${(comprehensiveData?.riskLevel || 'Medium') === 'Low' ? 'bg-emerald-500/30 text-emerald-400 border-emerald-500/50 shadow-emerald-500/30' : (comprehensiveData?.riskLevel || 'Medium') === 'High' ? 'bg-red-500/30 text-red-400 border-red-500/50 shadow-red-500/30' : 'bg-yellow-500/30 text-yellow-400 border-yellow-500/50'}`}>
+                            {(comprehensiveData?.riskLevel || 'Medium') === 'Low' && (
                               <svg className="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2m0 0l2-2m-2 2l-2 2m0 0l2 2m-2 2l-2-2" />
                               </svg>
                             )}
-                            {(stock.riskLevel || 'Medium') === 'High' && (
+                            {(comprehensiveData?.riskLevel || 'Medium') === 'High' && (
                               <svg className="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                               </svg>
                             )}
-                            {(stock.riskLevel || 'Medium') === 'Medium' && (
+                            {(comprehensiveData?.riskLevel || 'Medium') === 'Medium' && (
                               <svg className="w-4 h-4 mr-2 inline-block" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                               </svg>
                             )}
-                            <span className="ml-1">{stock.riskLevel || 'Medium'}</span>
+                            <span className="ml-1">{comprehensiveData?.riskLevel || 'Medium'}</span>
                           </span>
                         </div>
                       </div>
@@ -556,15 +622,15 @@ const StockDetails = () => {
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex items-center">
-                          <div className={`w-3 h-3 rounded-full mr-4 shadow-lg animate-pulse ${(stock.volatility || 'Medium') === 'Low' ? 'bg-emerald-400 shadow-emerald-400/50' : (stock.volatility || 'Medium') === 'High' ? 'bg-red-400 shadow-red-400/50' : 'bg-yellow-400 shadow-yellow-400/50'}`}></div>
+                          <div className={`w-3 h-3 rounded-full mr-4 shadow-lg animate-pulse ${(comprehensiveData?.volatility || 'Medium') === 'Low' ? 'bg-emerald-400 shadow-emerald-400/50' : (comprehensiveData?.volatility || 'Medium') === 'High' ? 'bg-red-400 shadow-red-400/50' : 'bg-yellow-400 shadow-yellow-400/50'}`}></div>
                           <div>
                             <span className="text-slate-200 text-sm font-semibold">Volatility</span>
                             <div className="text-xs text-slate-400 mt-1">Price movement over 30-day period</div>
                           </div>
                         </div>
                         <div className="flex items-center">
-                          <span className={`text-lg font-bold px-5 py-2 rounded-full border-2 transition-all duration-300 ${(stock.volatility || 'Medium') === 'Low' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' : (stock.volatility || 'Medium') === 'High' ? 'text-red-400 bg-red-400/10 border-red-400/30' : 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'}`}>
-                            {(stock.volatility || 'Medium')}
+                          <span className={`text-lg font-bold px-5 py-2 rounded-full border-2 transition-all duration-300 ${(comprehensiveData?.volatility || 'Medium') === 'Low' ? 'text-emerald-400 bg-emerald-400/10 border-emerald-400/30' : (comprehensiveData?.volatility || 'Medium') === 'High' ? 'text-red-400 bg-red-400/10 border-red-400/30' : 'text-yellow-400 bg-yellow-400/10 border-yellow-400/30'}`}>
+                            {(comprehensiveData?.volatility || 'Medium')}
                           </span>
                         </div>
                       </div>
@@ -586,8 +652,8 @@ const StockDetails = () => {
                           </div>
                         </div>
                         <div className="flex items-center">
-                          <span className={`px-5 py-3 rounded-full text-sm font-bold border-2 flex items-center transition-all duration-300 group-hover:scale-105 ${(stock.recommendation || 'Hold') === 'Buy' ? 'bg-emerald-500/30 text-emerald-400 border-emerald-500/50 shadow-emerald-500/30' : (stock.recommendation || 'Hold') === 'Sell' ? 'bg-red-500/30 text-red-400 border-red-500/50 shadow-red-500/30' : 'bg-blue-500/30 text-blue-400 border-blue-500/50 shadow-blue-500/30'}`}>
-                            {(stock.recommendation || 'Hold') === 'Buy' && (
+                          <span className={`px-5 py-3 rounded-full text-sm font-bold border-2 flex items-center transition-all duration-300 group-hover:scale-105 ${(comprehensiveData?.recommendation || 'Hold') === 'Buy' ? 'bg-emerald-500/30 text-emerald-400 border-emerald-500/50 shadow-emerald-500/30' : (comprehensiveData?.recommendation || 'Hold') === 'Sell' ? 'bg-red-500/30 text-red-400 border-red-500/50 shadow-red-500/30' : 'bg-blue-500/30 text-blue-400 border-blue-500/50 shadow-blue-500/30'}`}>
+                            {(comprehensiveData?.recommendation || 'Hold') === 'Buy' && (
                               <>
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
@@ -595,7 +661,7 @@ const StockDetails = () => {
                                 <span className="ml-1">Strong Buy</span>
                               </>
                             )}
-                            {(stock.recommendation || 'Hold') === 'Sell' && (
+                            {(comprehensiveData?.recommendation || 'Hold') === 'Sell' && (
                               <>
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 17h8m0 0V9m0 8l-8 8-4-4-6 6" />
@@ -603,7 +669,7 @@ const StockDetails = () => {
                                 <span className="ml-1">Strong Sell</span>
                               </>
                             )}
-                            {(stock.recommendation || 'Hold') === 'Hold' && (
+                            {(comprehensiveData?.recommendation || 'Hold') === 'Hold' && (
                               <>
                                 <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />

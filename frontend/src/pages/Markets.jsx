@@ -76,7 +76,7 @@ const Markets = () => {
             <table className="w-full min-w-[700px]">
               <thead className="bg-slate-800/50 border-b border-slate-700/50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider hidden sm:table-cell">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Symbol
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-slate-400 uppercase tracking-wider">
@@ -85,10 +85,10 @@ const Markets = () => {
                   <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Price
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider hidden md:table-cell">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Change
                   </th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider hidden lg:table-cell">
+                  <th className="px-4 py-3 text-right text-xs font-medium text-slate-400 uppercase tracking-wider">
                     Volume
                   </th>
                 </tr>
@@ -100,7 +100,7 @@ const Markets = () => {
                     className="hover:bg-slate-800/30 transition-colors cursor-pointer"
                     onClick={() => handleStockClick(stock)}
                   >
-                    <td className="px-4 py-3 text-sm font-medium text-slate-100 align-middle whitespace-nowrap hidden sm:table-cell">
+                    <td className="px-4 py-3 text-sm font-medium text-slate-100 align-middle whitespace-nowrap">
                       <div className="flex items-center space-x-2">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs ${
                           stock.positive ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/20 text-red-400 border border-red-500/30'
@@ -110,20 +110,15 @@ const Markets = () => {
                         <span>{stock.symbol}</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-slate-100 align-middle">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                        <div className="truncate max-w-[200px] sm:max-w-[250px]" title={stock.name}>
-                          <span className="font-medium text-sm">{stock.name}</span>
-                        </div>
-                        <div className="sm:hidden text-xs text-slate-400">
-                          {stock.symbol}
-                        </div>
+                    <td className="px-4 py-3 text-sm text-slate-100 align-middle">
+                      <div className="truncate max-w-[150px] sm:max-w-[200px]" title={stock.name}>
+                        {stock.name}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-right font-medium text-slate-100 align-middle whitespace-nowrap">
                       ₹{stock.price.toFixed(2)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-right align-middle hidden md:table-cell">
+                    <td className="px-4 py-3 text-sm text-right align-middle">
                       <div className={`font-medium ${stock.positive ? "text-emerald-400" : "text-red-400"}`}>
                         {stock.positive ? "+" : ""}{stock.percent}
                       </div>
@@ -131,7 +126,7 @@ const Markets = () => {
                         {stock.positive ? "+" : ""}{stock.change.toFixed(2)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-right text-slate-100 align-middle whitespace-nowrap hidden lg:table-cell">
+                    <td className="px-4 py-3 text-sm text-right text-slate-100 align-middle whitespace-nowrap">
                       {stock.volume ? stock.volume.toLocaleString() : "N/A"}
                     </td>
                   </tr>

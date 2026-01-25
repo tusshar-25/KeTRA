@@ -99,8 +99,8 @@ const EnhancedIPOCard = ({ ipo, onApplySuccess }) => {
           <span className="text-slate-300">₹{ipo.minInvestment ? ipo.minInvestment.toLocaleString() : 'N/A'}</span>
         </div>
         <div className="flex justify-between">
-          <span>Status:</span>
-          <span className="text-slate-300">Today</span>
+          <span>Dates:</span>
+          <span className="text-slate-300">{ipo.openDate} → {ipo.closeDate}</span>
         </div>
       </div>
 
@@ -214,25 +214,29 @@ const EnhancedIPOCard = ({ ipo, onApplySuccess }) => {
                       </div>
                     </div>
 
-                    {/* Important Status */}
+                    {/* Important Dates */}
                     <div className="bg-slate-800/30 rounded-lg p-3 border border-slate-700/50">
-                      <h3 className="text-sm font-semibold text-slate-100 mb-3">Current Status</h3>
+                      <h3 className="text-sm font-semibold text-slate-100 mb-3">Important Dates</h3>
                       <div className="space-y-2">
                         <div className="flex justify-between items-center">
-                          <p className="text-xs text-slate-400">Status</p>
-                          <p className="text-xs font-medium text-slate-100 capitalize">{ipo.status}</p>
+                          <p className="text-xs text-slate-400">Open Date</p>
+                          <p className="text-xs font-medium text-slate-100">{ipo.openDate}</p>
                         </div>
                         <div className="flex justify-between items-center">
-                          <p className="text-xs text-slate-400">Available</p>
-                          <p className="text-xs font-medium text-slate-100">Today</p>
+                          <p className="text-xs text-slate-400">Close Date</p>
+                          <p className="text-xs font-medium text-slate-100">{ipo.closeDate}</p>
                         </div>
-                        {ipo.status === 'open' && (
-                          <div className="mt-2 text-center">
-                            <p className="text-xs text-slate-400">⚡ Fast Processing</p>
-                            <p className="text-xs text-indigo-400">Apply Now - Instant Results</p>
-                          </div>
-                        )}
+                        <div className="flex justify-between items-center">
+                          <p className="text-xs text-slate-400">Listing</p>
+                          <p className="text-xs font-medium text-slate-100">2 mins after allotment</p>
+                        </div>
                       </div>
+                      {ipo.status === 'open' && (
+                        <div className="mt-2 text-center">
+                          <p className="text-xs text-slate-400">⚡ Fast Track Timeline</p>
+                          <p className="text-xs text-indigo-400">Allotment: 1 min • Listing: 2 mins</p>
+                        </div>
+                      )}
                     </div>
                   </div>
 

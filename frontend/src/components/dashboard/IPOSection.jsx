@@ -5,6 +5,7 @@ import { useAuth } from "../../context/AuthContext";
 import { useAlert } from "../../context/AlertContext";
 import { getIPOs } from "../../services/ipoService";
 import { useNavigate } from "react-router-dom";
+import { getMarketStatus } from "../../utils/marketStatu";
 
 /* ---------------- ANIMATIONS ---------------- */
 
@@ -26,15 +27,38 @@ const card = {
 
 const IPOSection = () => {
   const [ipos, setIpos] = useState([]);
+  const [marketStatus, setMarketStatus] = useState({ open: false });
   const navigate = useNavigate();
-  const { applyIPO } = useIPO();
+  const { applyIPO, appliedIPOs } = useIPO();
   const { user } = useAuth();
   const { showAlert } = useAlert();
 
   useEffect(() => {
+    // Fetch initial market status
+    const fetchMarketStatus = async () => {
+      try {
+        const status = await getMarketStatus();
+        setMarketStatus(status);
+      } catch (error) {
+        console.error('Failed to fetch market status:', error);
+        setMarketStatus({ open: false });
+      }
+    };
+
+    fetchMarketStatus();
+    
+    // Update market status every 2 minutes instead of 1 minute
+    const interval = setInterval(fetchMarketStatus, 120000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  useEffect(() => {
     getIPOs("open")
       .then((res) => {
-        setIpos(res.data.slice(0, 4));
+        // Show more IPOs on larger screens
+        const ipoCount = window.innerWidth >= 1024 ? 8 : 4;
+        setIpos(res.data.slice(0, ipoCount));
       })
       .catch((err) => {
         showAlert({
@@ -44,6 +68,13 @@ const IPOSection = () => {
         });
       });
   }, []);
+
+  // Check if IPO is already applied
+  const isAlreadyApplied = (ipoSymbol) => {
+    return appliedIPOs.some(
+      (appliedIPO) => appliedIPO.symbol === ipoSymbol && appliedIPO.status === "applied"
+    );
+  };
 
   const handleApply = (ipo) => {    
     if (!user) {
@@ -55,15 +86,25 @@ const IPOSection = () => {
       return;
     }
 
-    if (ipo.status !== "open") {
-  showAlert({
-    type: "error",
-    title: "IPO Closed",
-    message: "This IPO is not open for subscription"
-  });
-  return;
-}
+    // Temporarily bypass market status check for testing
+    // if (!marketStatus.open) {
+    //   showAlert({
+    //     type: "warning",
+    //     title: "Market Closed",
+    //     message: "IPO applications can only be placed during market hours (9:15 AM - 3:30 PM IST, Monday-Friday)"
+    //   });
+    //   return;
+    // }
 
+    // Check IPO status
+    if (ipo.status !== "open") {
+      showAlert({
+        type: "error",
+        title: "IPO Closed",
+        message: "This IPO is not open for subscription"
+      });
+      return;
+    }
 
     try {
       // ✅ Ensure issuePrice always exists (CRITICAL FIX)
@@ -147,95 +188,101 @@ const IPOSection = () => {
         variants={container}
         initial="hidden"
         animate="show"
-        className="grid md:grid-cols-2 gap-4"
+        className="grid md:grid-cols-2 xl:grid-cols-3 gap-4"
       >
-        {ipos.map((ipo) => (
-          <motion.div
-            key={ipo.symbol}
-            variants={card}
-            whileHover={{ scale: 1.02 }}
-            className="
-              will-change-transform
-              relative
-              rounded-xl
-              border border-slate-700/50
-              bg-gradient-to-br from-slate-900/60 to-slate-950/80
-              p-5
-              transition-all duration-300
-              hover:border-sky-500/40
-              hover:shadow-lg hover:shadow-sky-500/10
-              backdrop-blur-sm
-            "
-          >
-            {/* TITLE + STATUS */}
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <h3 className="font-bold text-slate-100 text-lg leading-snug">
-                  {ipo.name}
-                </h3>
-                <p className="text-xs text-slate-400 mt-1">
-                  {ipo.symbol}
-                </p>
-              </div>
-
-              <span
-                className="
-                  shrink-0
-                  text-xs font-bold
-                  px-3 py-1.5 rounded-full
-                  bg-emerald-500/20 text-emerald-400
-                  border border-emerald-500/30
-                "
-              >
-                OPEN
-              </span>
-            </div>
-
-            {/* DETAILS */}
-            <div className="mt-4 space-y-2">
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-slate-400">Price Band</p>
-                <p className="text-sm font-semibold text-slate-200">
-                  ₹{ipo.priceBand}
-                </p>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-slate-400">Min Investment</p>
-                <p className="text-sm font-semibold text-slate-200">
-                  ₹{ipo.minInvestment.toLocaleString()}
-                </p>
-              </div>
-
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-slate-400">Lot Size</p>
-                <p className="text-sm font-semibold text-slate-200">
-                  {ipo.lotSize || 1} shares
-                </p>
-              </div>
-            </div>
-
-            {/* ACTION */}
-            <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => handleApply(ipo)}
-              className="
-                mt-5 w-full
+        {ipos.map((ipo) => {
+          const alreadyApplied = isAlreadyApplied(ipo.symbol);
+          return (
+            <motion.div
+              key={ipo.symbol}
+              variants={card}
+              whileHover={{ scale: 1.02 }}
+              className={`
+                will-change-transform
+                relative
                 rounded-xl
-                bg-gradient-to-r from-sky-500 to-sky-600
-                hover:from-sky-600 hover:to-sky-700
-                text-white
-                font-semibold
-                py-3
+                border ${alreadyApplied ? 'border-slate-600/50' : 'border-slate-700/50'}
+                bg-gradient-to-br from-slate-900/60 to-slate-950/80
+                p-5
                 transition-all duration-300
-                hover:shadow-sky-500/40
-              "
+                ${alreadyApplied ? 'hover:border-slate-600/40' : 'hover:border-sky-500/40'}
+                ${alreadyApplied ? '' : 'hover:shadow-lg hover:shadow-sky-500/10'}
+                backdrop-blur-sm
+              `}
             >
-              Apply Now
-            </motion.button>
-          </motion.div>
-        ))}
+              {/* TITLE + STATUS */}
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <h3 className="font-bold text-slate-100 text-lg leading-snug">
+                    {ipo.name}
+                  </h3>
+                  <p className="text-xs text-slate-400 mt-1">
+                    {ipo.symbol}
+                  </p>
+                </div>
+
+                <span
+                  className={`
+                    shrink-0
+                    text-xs font-bold
+                    px-3 py-1.5 rounded-full
+                    ${alreadyApplied 
+                      ? 'bg-slate-600/20 text-slate-400 border border-slate-600/30' 
+                      : 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    }
+                  `}
+                >
+                  {alreadyApplied ? 'APPLIED' : 'OPEN'}
+                </span>
+              </div>
+
+              {/* DETAILS */}
+              <div className="mt-4 space-y-2">
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-slate-400">Price Band</p>
+                  <p className="text-sm font-semibold text-slate-200">
+                    ₹{ipo.priceBand}
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-slate-400">Min Investment</p>
+                  <p className="text-sm font-semibold text-slate-200">
+                    ₹{ipo.minInvestment.toLocaleString()}
+                  </p>
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <p className="text-xs text-slate-400">Lot Size</p>
+                  <p className="text-sm font-semibold text-slate-200">
+                    {ipo.lotSize || 1} shares
+                  </p>
+                </div>
+              </div>
+
+              {/* ACTION */}
+              <motion.button
+                whileHover={{ scale: 1.04 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => handleApply(ipo)}
+                disabled={alreadyApplied}
+                className={`
+                  mt-5 w-full
+                  rounded-xl
+                  font-semibold
+                  py-3
+                  transition-all duration-300
+                  ${alreadyApplied 
+                    ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-sky-500 to-sky-600 hover:from-sky-600 hover:to-sky-700 text-white hover:shadow-sky-500/40'
+                  }
+                `}
+              >
+                {alreadyApplied ? 'Already Applied' : 'Apply Now'}
+              </motion.button>
+            </motion.div>
+          );
+        })}
       </motion.div>
     </section>
   );
