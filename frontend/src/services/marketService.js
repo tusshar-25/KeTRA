@@ -3,7 +3,7 @@ import axios from "axios";
 
 // Create a separate API instance for market data with longer timeout
 const marketApi = axios.create({
-  baseURL: import.meta.env.VITE_API_URL,
+  baseURL: import.meta.env.VITE_API_URL || "http://localhost:5000/api",
   timeout: 10000, // 10 second timeout for market data (increased from 5s)
   headers: {
     'Content-Type': 'application/json'
@@ -19,15 +19,41 @@ marketApi.interceptors.request.use((config) => {
   return config;
 });
 
+// Add response interceptor for better error handling
+marketApi.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    console.error('Market API Error:', error.message);
+    
+    // Return mock data for development/fallback
+    if (error.code === 'ECONNREFUSED' || error.code === 'NETWORK_ERROR') {
+      console.warn('Using fallback data due to API unavailability');
+      return Promise.resolve({
+        data: {
+          stocks: [],
+          indices: [],
+          message: 'Using fallback data - API unavailable'
+        }
+      });
+    }
+    
+    return Promise.reject(error);
+  }
+);
+
 export const getMarketIndices = () => {
   return api.get("/market/indices");
 };
 
-export const getLiveStocks = (symbols) =>
-  marketApi.get(`/market/stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`);
+export const getLiveStocks = (symbols) => {
+  const url = `/market/stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
+  return marketApi.get(url);
+};
 
-export const getSMEStocks = (symbols) =>
-  marketApi.get(`/market/sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`);
+export const getSMEStocks = (symbols) => {
+  const url = `/market/sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
+  return marketApi.get(url);
+};
 
 export const buyStock = async (symbol, quantity, price) => {
   try {

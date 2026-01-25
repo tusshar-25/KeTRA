@@ -4,20 +4,20 @@
  * @returns {boolean} - true if market is open, false otherwise
  */
 export const isMarketOpenServer = () => {
-  // Temporarily set to true for testing
-  return true;
+  // Set to false for production
+  // return true; // Testing mode disabled
   
-  // const now = new Date();
+  const now = new Date();
 
-  // // Convert to IST (Asia/Kolkata timezone)
-  // const istTime = new Date(
-  //   now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
-  // );
+  // Convert to IST (Asia/Kolkata timezone)
+  const istTime = new Date(
+    now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+  );
 
-  // const hours = istTime.getHours();
-  // const minutes = istTime.getMinutes();
-  // const totalMinutes = hours * 60 + minutes;
+  const hours = istTime.getHours();
+  const minutes = istTime.getMinutes();
+  const totalMinutes = hours * 60 + minutes;
 
-  // // Market is open from 9:15 AM (555 minutes) to 3:30 PM (930 minutes)
-  // return totalMinutes >= 555 && totalMinutes <= 930;
+  // Market is open from 9:15 AM (555 minutes) to 3:30 PM (930 minutes)
+  return totalMinutes >= 555 && totalMinutes <= 930;
 };

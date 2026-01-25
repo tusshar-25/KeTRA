@@ -5,7 +5,7 @@ export const MARKET_HOURS = {
   closeMinute: 30,
 };
 
-const FORCE_MARKET_OPEN = true; // Temporarily set to true for testing
+const FORCE_MARKET_OPEN = false; // Set to false for production
 
 export const isMarketOpen = () => {
   if (FORCE_MARKET_OPEN) return true;
