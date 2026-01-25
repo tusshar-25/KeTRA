@@ -1,14 +1,33 @@
 import api from "./api";
+import axios from "axios";
+
+// Create a separate API instance for market data with shorter timeout
+const marketApi = axios.create({
+  baseURL: import.meta.env.VITE_API_URL,
+  timeout: 5000, // 5 second timeout for market data
+  headers: {
+    'Content-Type': 'application/json'
+  }
+});
+
+// Add auth interceptor to marketApi
+marketApi.interceptors.request.use((config) => {
+  const token = localStorage.getItem("ketra_token");
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  return config;
+});
 
 export const getMarketIndices = () => {
   return api.get("/market/indices");
 };
 
 export const getLiveStocks = (symbols) =>
-  api.get(`/market/stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`);
+  marketApi.get(`/market/stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`);
 
 export const getSMEStocks = (symbols) =>
-  api.get(`/market/sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`);
+  marketApi.get(`/market/sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`);
 
 export const buyStock = async (symbol, quantity, price) => {
   try {
@@ -41,4 +60,12 @@ export const getPortfolio = () => {
 
 export const getTransactions = () => {
   return api.get("/market/transactions");
+};
+
+export const getHistoricalData = (symbol, period = "1mo") => {
+  return api.get(`/market/historical/${symbol}?period=${period}`);
+};
+
+export const getComprehensiveData = (symbol) => {
+  return api.get(`/market/comprehensive/${symbol}`);
 };

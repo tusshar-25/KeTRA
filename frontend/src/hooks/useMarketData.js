@@ -23,25 +23,49 @@ const useMarketData = () => {
       setLoading(true);
       setError(null);
       
-      const [popularResponse, smeResponse] = await Promise.all([
-        getLiveStocks(),
-        getSMEStocks()
-      ]);
+      // Fetch stocks independently to prevent one failure from breaking everything
+      let popularStocks = [];
+      let smeStocks = [];
       
-      const popularStocks = popularResponse.data.stocks || [];
-      const smeStocks = smeResponse.data.stocks || [];
+      try {
+        const popularResponse = await getLiveStocks();
+        popularStocks = popularResponse.data.stocks || [];
+      } catch (popularErr) {
+        console.warn("Failed to fetch popular stocks, using fallback:", popularErr.message);
+        // Use cached data if available, otherwise empty array
+        popularStocks = cachedStocks || [];
+      }
+      
+      try {
+        const smeResponse = await getSMEStocks();
+        smeStocks = smeResponse.data.stocks || [];
+      } catch (smeErr) {
+        console.warn("Failed to fetch SME stocks, using fallback:", smeErr.message);
+        // Use cached data if available, otherwise empty array
+        smeStocks = cachedSMEStocks || [];
+      }
       
       setStocks(popularStocks);
       setSMEStocks(smeStocks);
-      setCachedStocks(popularStocks);
-      setCachedSMEStocks(smeStocks);
+      
+      // Only update cache if we got new data
+      if (popularStocks.length > 0) setCachedStocks(popularStocks);
+      if (smeStocks.length > 0) setCachedSMEStocks(smeStocks);
+      
+      // Only set error if both failed
+      if (popularStocks.length === 0 && smeStocks.length === 0) {
+        setError("Market data temporarily unavailable");
+      }
     } catch (err) {
-      console.error("Failed to fetch market data:", err);
+      console.error("Unexpected error in fetchAllStocks:", err);
       setError(err.message || "Failed to load market data");
+      // Use cached data as fallback
+      setStocks(cachedStocks || []);
+      setSMEStocks(cachedSMEStocks || []);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [cachedStocks, cachedSMEStocks]);
 
   // Only fetch on initial mount
   useEffect(() => {
