@@ -1,8 +1,31 @@
-# KeTrade – Modern Trading Platform
+# 📈 KeTRA - Advanced Trading Platform
 
-KeTrade is a comprehensive **full-stack trading learning platform** built with **React and Node.js**, designed to simulate real-world stock trading, IPO investments, portfolio tracking, and market analysis with a modern UI and secure backend.
+A modern, feature-rich trading platform built with React and Node.js, offering real-time market data, IPO management, and portfolio tracking.
 
----
+## 🚀 Live Demo
+
+- **Frontend**: [https://ketra-main.onrender.com/](https://ketra-main.onrender.com/)
+- **Backend API**: [https://ketra.onrender.com/](https://ketra.onrender.com/)
+
+## 📸 Platform Screenshots
+
+### 📊 Market Dashboard
+![Dashboard](screenshots/Dashboard.png)
+
+### 🏠 Market Overview
+![Market](screenshots/Market.png)
+
+### 📈 Market Movers
+![Market Movers](screenshots/MarketMovers.png)
+
+### 🎯 IPO Management
+![IPO Management](screenshots/Ipo.png)
+
+### 💼 Portfolio Overview
+![Portfolio](screenshots/Portfolio.png)
+
+### 👤 User Profile
+![Profile](screenshots/Profile.png)
 
 ## 🚀 Features
 
@@ -25,6 +48,7 @@ KeTrade is a comprehensive **full-stack trading learning platform** built with *
 - **SIP Calculator** – Systematic Investment Plan calculations
 
 ### User Experience
+- **Welcome Screen** - Beautiful animated welcome page on first visit
 - **Modern UI/UX** – Clean, responsive interface using Tailwind CSS
 - **Real-time Updates** – Live price feeds and portfolio valuation
 - **Secure Authentication** – JWT-based authentication
@@ -80,6 +104,14 @@ KeTrade/
 │   │   └── assets/
 │   ├── public/
 │   └── package.json
+│
+├── screenshots/
+│   ├── Dashboard.png
+│   ├── Market.png
+│   ├── MarketMovers.png
+│   ├── Ipo.png
+│   ├── Portfolio.png
+│   └── Profile.png
 │
 └── README.md
 
