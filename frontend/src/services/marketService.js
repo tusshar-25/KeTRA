@@ -51,7 +51,7 @@ export const getLiveStocks = (symbols) => {
 };
 
 export const getSMEStocks = (symbols) => {
-  const url = `sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
+  const url = `market/sme-stocks${symbols && symbols.length > 0 ? `?symbols=${symbols.join(",")}` : ""}`;
   return marketApi.get(url);
 };
 
