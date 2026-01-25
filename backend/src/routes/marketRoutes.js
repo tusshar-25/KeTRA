@@ -4,9 +4,10 @@ import User from "../models/User.js";
 import Transaction from "../models/Transaction.js";
 import Portfolio from "../models/Portfolio.js";
 import jwt from "jsonwebtoken";
+import { isMarketOpenServer } from "../utils/marketTime.js";
 
 const router = express.Router();
-const yf = new yahooFinance();
+const yf = new yahooFinance({ suppressNotices: ['ripHistorical'] });
 
 /**
  * Fetch index data using yahoo-finance2 (handles auth internally)
@@ -71,6 +72,41 @@ const fetchIndex = async (symbol, name) => {
     };
   }
 };
+
+/**
+ * @route   GET /api/market/status
+ * @desc    Get current market status and hours
+ * @access  Public
+ */
+router.get("/status", async (req, res) => {
+  try {
+    const isOpen = isMarketOpenServer();
+    const now = new Date();
+    
+    // Format current time in IST
+    const istTime = new Date(
+      now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" })
+    );
+
+    res.status(200).json({
+      isOpen,
+      currentTime: istTime.toISOString(),
+      marketHours: {
+        open: "09:15 AM",
+        close: "03:30 PM",
+        timezone: "IST",
+        weekdays: "Monday - Friday"
+      },
+      lastChecked: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error("MARKET STATUS ERROR:", error);
+    res.status(500).json({ 
+      message: "Failed to get market status",
+      error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+    });
+  }
+});
 
 /**
  * @route   GET /api/market/indices
@@ -139,66 +175,28 @@ router.get("/stocks", async (req, res) => {
         "HCLTECH.NS",
         "SUNPHARMA.NS",
         "M&M.NS",
-        "TITAN.NS",
-        "NTPC.NS",
-        "ULTRACEMCO.NS",
-        "BAJFINANCE.NS",
-        "ADANIPORTS.NS",
-        "POWERGRID.NS",
-        "WIPRO.NS",
-        "GRASIM.NS",
-        "JSWSTEEL.NS",
-        "BPCL.NS",
-        "CIPLA.NS",
-        "COALINDIA.NS",
-        "BRITANNIA.NS",
-        "HEROMOTOCO.NS",
-        "DRREDDY.NS",
-        "UPL.NS",
-        "DIVISLAB.NS",
-        "EICHERMOT.NS",
-        "APOLLOHOSP.NS",
-        "NESTLEIND.NS",
-        "TATAMOTORS.NS",
-        "SHREECEM.NS",
-        "HINDALCO.NS",
-        "TATASTEEL.NS",
-        "VEDL.NS",
-        "IOC.NS",
-        "GAIL.NS",
-        "ZOMATO.NS",
-        "PAYTM.NS",
-        "NYKAA.NS",
-        "POLYMED.NS",
-        "AUBANK.NS",
-        "IDFCFIRSTB.NS",
-        "FEDERALBNK.NS",
-        "INDUSINDBK.NS",
-        "PNB.NS",
-        "BANKBARODA.NS",
-        "CANBK.NS",
-        "UNIONBANK.NS",
-        "INDIGO.NS",
-        "DABUR.NS",
-        "GODREJCP.NS",
-        "TATACONSUM.NS",
-        "BERGEPAINT.NS",
-        "ASIANPAINT.NS"
+        "TITAN.NS"
       ];
 
-    const results = [];
+    console.log(`Fetching ${symbols.length} stocks from Yahoo Finance...`);
+    const startTime = Date.now();
 
-    for (const symbol of symbols) {
+    // Fetch stocks in parallel with timeout
+    const stockPromises = symbols.map(async (symbol) => {
       try {
-        const q = await yf.quote(
-          symbol,
-          {},
-          { validateResult: false }
+        // Add timeout to each individual stock fetch
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Stock fetch timeout')), 3000)
         );
+        
+        const quotePromise = yf.quote(symbol, {}, { validateResult: false });
+        const q = await Promise.race([quotePromise, timeoutPromise]);
 
-        if (!q || q.regularMarketPrice == null) continue;
+        if (!q || q.regularMarketPrice == null) {
+          throw new Error("Invalid quote data");
+        }
 
-        results.push({
+        return {
           symbol: q.symbol,
           name: q.shortName || q.displayName || q.symbol,
           price: q.regularMarketPrice,
@@ -211,21 +209,49 @@ router.get("/stocks", async (req, res) => {
           volume: q.regularMarketVolume,
           marketCap: q.marketCap,
           delayed: true,
-        });
+        };
       } catch (err) {
         console.error(`Stock fetch failed: ${symbol}`, err.message);
+        return null; // Return null for failed stocks
       }
-    }
+    });
+
+    // Wait for all stock fetches with a overall timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Overall stocks fetch timeout')), 8000)
+    );
+    
+    const stockResults = await Promise.race([
+      Promise.all(stockPromises),
+      timeoutPromise
+    ]);
+
+    // Filter out null results and sort by market cap
+    const results = stockResults
+      .filter(stock => stock !== null)
+      .sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0))
+      .slice(0, 20); // Limit to top 20 by market cap
+
+    const fetchTime = Date.now() - startTime;
+    console.log(`Successfully fetched ${results.length} stocks in ${fetchTime}ms`);
 
     res.json({
       stocks: results,
       delayed: true,
       source: "Yahoo Finance",
       lastUpdated: new Date().toISOString(),
+      fetchTime: `${fetchTime}ms`
     });
   } catch (error) {
     console.error("STOCK ROUTE CRASH:", error);
-    res.status(500).json({ message: "Stock service unavailable" });
+    // Return empty array instead of error to prevent frontend issues
+    res.json({
+      stocks: [],
+      delayed: true,
+      source: "Yahoo Finance (Error)",
+      lastUpdated: new Date().toISOString(),
+      error: error.message
+    });
   }
 });
 
@@ -248,68 +274,28 @@ router.get("/sme-stocks", async (req, res) => {
         "CROMPTON.NS",
         "FINPIPE.NS",
         "SHAKTIPUMP.NS",
-        "RATNAMANI.NS",
-        "TIMKEN.NS",
-        "SCHAEFFLER.NS",
-        "NBC.NS",
-        "BASF.NS",
-        "KSB.NS",
-        "WABAG.NS",
-        "THERMAX.NS",
-        "PRAJIND.NS",
-        "DCMSHRIRAM.NS",
-        "EPL.NS",
-        "UCOBANK.NS",
-        "J&KBANK.NS",
-        "FEDERALBNK.NS",
-        "KARURVYSYA.NS",
-        "SOUTHBANK.NS",
-        "JAMNAAUTO.NS",
-        "MOTHERSON.NS",
-        "SUPRAJIT.NS",
-        "MUNJALSHOW.NS",
-        "SAML.NS",
-        "GUFICBIO.NS",
-        "LAXMICHML.NS",
-        "TORNTPOWER.NS",
-        "CESC.NS",
-        "TATAPOWER.NS",
-        "JSWENERGY.NS",
-        "ADANIGREEN.NS",
-        "SOLARINDS.NS",
-        "SWELECTES.NS",
-        "SUZLON.NS",
-        "RENUKA.NS",
-        "BALKRISHNA.NS",
-        "ANRAJ.NS",
-        "BOMDIA.NS",
-        "GRINDWELL.NS",
-        "CARBORUNIV.NS",
-        "HIKAL.NS",
-        "AIAENGINEER.NS",
-        "PNCINFRA.NS",
-        "MANINFRA.NS",
-        "NCC.NS",
-        "HCC.NS",
-        "IVRCL.NS",
-        "GMRINFRA.NS",
-        "Lanco.NS",
-        "JPPOWER.NS"
+        "RATNAMANI.NS"
       ];
 
-    const results = [];
+    console.log(`Fetching ${symbols.length} SME stocks from Yahoo Finance...`);
+    const startTime = Date.now();
 
-    for (const symbol of symbols) {
+    // Fetch SME stocks in parallel with timeout
+    const stockPromises = symbols.map(async (symbol) => {
       try {
-        const q = await yf.quote(
-          symbol,
-          {},
-          { validateResult: false }
+        // Add timeout to each individual stock fetch
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('SME stock fetch timeout')), 3000)
         );
+        
+        const quotePromise = yf.quote(symbol, {}, { validateResult: false });
+        const q = await Promise.race([quotePromise, timeoutPromise]);
 
-        if (!q || q.regularMarketPrice == null) continue;
+        if (!q || q.regularMarketPrice == null) {
+          throw new Error("Invalid quote data");
+        }
 
-        results.push({
+        return {
           symbol: q.symbol,
           name: q.shortName || q.displayName || q.symbol,
           price: q.regularMarketPrice,
@@ -322,21 +308,48 @@ router.get("/sme-stocks", async (req, res) => {
           volume: q.regularMarketVolume,
           marketCap: q.marketCap,
           delayed: true,
-        });
+        };
       } catch (err) {
         console.error(`SME stock fetch failed: ${symbol}`, err.message);
+        return null; // Return null for failed stocks
       }
-    }
+    });
+
+    // Wait for all SME stock fetches with a overall timeout
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Overall SME stocks fetch timeout')), 6000)
+    );
+    
+    const stockResults = await Promise.race([
+      Promise.all(stockPromises),
+      timeoutPromise
+    ]);
+
+    // Filter out null results and sort by market cap
+    const results = stockResults
+      .filter(stock => stock !== null)
+      .sort((a, b) => (b.marketCap || 0) - (a.marketCap || 0));
+
+    const fetchTime = Date.now() - startTime;
+    console.log(`Successfully fetched ${results.length} SME stocks in ${fetchTime}ms`);
 
     res.json({
       stocks: results,
       delayed: true,
       source: "Yahoo Finance",
       lastUpdated: new Date().toISOString(),
+      fetchTime: `${fetchTime}ms`
     });
   } catch (error) {
     console.error("SME STOCK ROUTE CRASH:", error);
-    res.status(500).json({ message: "SME stock service unavailable" });
+    // Return empty array instead of error to prevent frontend issues
+    res.json({
+      stocks: [],
+      delayed: true,
+      source: "Yahoo Finance (Error)",
+      lastUpdated: new Date().toISOString(),
+      error: error.message
+    });
   }
 });
 
@@ -374,11 +387,28 @@ router.post("/buy", async (req, res) => {
 
     const { symbol, quantity, price } = req.body;
     
-    if (!symbol || !quantity || !price) {
-      return res.status(400).json({ message: "Symbol, quantity, and price are required" });
+    // Validate required fields - price is optional
+    if (!symbol || !quantity) {
+      return res.status(400).json({ message: "Symbol and quantity are required" });
     }
 
-    const totalCost = parseFloat(price) * parseInt(quantity);
+    // If price not provided, fetch current market price
+    let currentPrice = price;
+    if (!currentPrice) {
+      try {
+        const yf = await import('yahoo-finance2').then(mod => mod.default);
+        const quote = await yf.quote(symbol, {}, { validateResult: false });
+        if (!quote || quote.regularMarketPrice == null) {
+          return res.status(404).json({ message: "Could not fetch current stock price" });
+        }
+        currentPrice = quote.regularMarketPrice;
+      } catch (error) {
+        console.error(`Failed to fetch stock price for ${symbol}:`, error);
+        return res.status(400).json({ message: "Could not determine stock price" });
+      }
+    }
+
+    const totalCost = parseFloat(currentPrice) * parseInt(quantity);
     
     // Check if user has sufficient balance
     if (user.balance < totalCost) {
@@ -395,7 +425,7 @@ router.post("/buy", async (req, res) => {
       type: "BUY",
       symbol: symbol.toUpperCase(),
       quantity: parseInt(quantity),
-      price: parseFloat(price),
+      price: parseFloat(currentPrice),
       amount: totalCost,
       timestamp: new Date()
     });
@@ -415,8 +445,8 @@ router.post("/buy", async (req, res) => {
       
       existingHolding.quantity = newQuantity;
       existingHolding.avgPrice = newAvgPrice;
-      existingHolding.currentPrice = parseFloat(price);
-      existingHolding.currentValue = newQuantity * parseFloat(price);
+      existingHolding.currentPrice = parseFloat(currentPrice);
+      existingHolding.currentValue = newQuantity * parseFloat(currentPrice);
       existingHolding.investedValue = newQuantity * newAvgPrice;
       existingHolding.pnl = existingHolding.currentValue - existingHolding.investedValue;
       existingHolding.pnlPercent = (existingHolding.pnl / existingHolding.investedValue) * 100;
@@ -429,8 +459,8 @@ router.post("/buy", async (req, res) => {
         user: user._id,
         symbol: symbol.toUpperCase(),
         quantity: parseInt(quantity),
-        avgPrice: parseFloat(price),
-        currentPrice: parseFloat(price),
+        avgPrice: parseFloat(currentPrice),
+        currentPrice: parseFloat(currentPrice),
         currentValue: totalCost,
         investedValue: totalCost,
         pnl: 0,
@@ -440,7 +470,7 @@ router.post("/buy", async (req, res) => {
       console.log(`Created new holding:`, newHolding);
     }
 
-    console.log(`Buy order executed: ${quantity} ${symbol} @ ${price}, Balance: ₹${user.balance}`);
+    console.log(`Buy order executed: ${quantity} ${symbol} @ ${currentPrice}, Balance: ₹${user.balance}`);
     
     res.status(201).json({
       message: "Buy order executed successfully",
@@ -483,13 +513,31 @@ router.post("/sell", async (req, res) => {
 
     const { symbol, quantity, price } = req.body;
     
-    if (!symbol || !quantity || !price) {
-      return res.status(400).json({ message: "Symbol, quantity, and price are required" });
+    // Validate required fields - price is optional
+    if (!symbol || !quantity) {
+      return res.status(400).json({ message: "Symbol and quantity are required" });
     }
 
     const symbolUpper = symbol.toUpperCase();
     const sellQuantity = parseInt(quantity);
-    const totalProceeds = parseFloat(price) * sellQuantity;
+    
+    // If price not provided, fetch current market price
+    let currentPrice = price;
+    if (!currentPrice) {
+      try {
+        const yf = await import('yahoo-finance2').then(mod => mod.default);
+        const quote = await yf.quote(symbol, {}, { validateResult: false });
+        if (!quote || quote.regularMarketPrice == null) {
+          return res.status(404).json({ message: "Could not fetch current stock price" });
+        }
+        currentPrice = quote.regularMarketPrice;
+      } catch (error) {
+        console.error(`Failed to fetch stock price for ${symbol}:`, error);
+        return res.status(400).json({ message: "Could not determine stock price" });
+      }
+    }
+    
+    const totalProceeds = parseFloat(currentPrice) * sellQuantity;
     
     // Check if user has enough holdings
     const holding = await Portfolio.findOne({ 
@@ -511,7 +559,7 @@ router.post("/sell", async (req, res) => {
       type: "SELL",
       symbol: symbolUpper,
       quantity: sellQuantity,
-      price: parseFloat(price),
+      price: parseFloat(currentPrice),
       amount: totalProceeds,
       timestamp: new Date()
     });
@@ -528,8 +576,8 @@ router.post("/sell", async (req, res) => {
       const newInvestedValue = holding.investedValue - soldCostBasis;
       
       holding.quantity = remainingQuantity;
-      holding.currentPrice = parseFloat(price);
-      holding.currentValue = remainingQuantity * parseFloat(price);
+      holding.currentPrice = parseFloat(currentPrice);
+      holding.currentValue = remainingQuantity * parseFloat(currentPrice);
       holding.investedValue = newInvestedValue;
       holding.pnl = holding.currentValue - holding.investedValue;
       holding.pnlPercent = (holding.pnl / holding.investedValue) * 100;
@@ -537,7 +585,7 @@ router.post("/sell", async (req, res) => {
       await holding.save();
     }
 
-    console.log(`Sell order executed: ${sellQuantity} ${symbol} @ ${price}, Balance: ₹${user.balance}`);
+    console.log(`Sell order executed: ${sellQuantity} ${symbol} @ ${currentPrice}, Balance: ₹${user.balance}`);
     
     res.status(201).json({
       message: "Sell order executed successfully",
@@ -671,5 +719,217 @@ router.get("/transactions", async (req, res) => {
     res.status(500).json({ message: "Failed to fetch transactions" });
   }
 });
+
+/**
+ * @route   GET /api/market/historical/:symbol
+ * @desc    Get historical price data for a stock
+ * @param   symbol - Stock symbol (e.g., RELIANCE.NS)
+ * @query   period - Time period (1d, 5d, 1mo, 3mo, 6mo, 1y, 2y, 5y, 10y, ytd, max)
+ * @access  Public
+ */
+router.get("/historical/:symbol", async (req, res) => {
+  try {
+    const { symbol } = req.params;
+    const { period = "1mo" } = req.query; // Default to 1 month
+
+    if (!symbol) {
+      return res.status(400).json({ message: "Symbol is required" });
+    }
+
+    console.log(`Fetching historical data for ${symbol} with period ${period}`);
+
+    // Fetch historical data using yahoo-finance2 chart API
+    const historicalData = await yf.chart(symbol, {
+      period1: getPeriodStartDate(period),
+      period2: new Date(),
+      interval: getIntervalForPeriod(period),
+    }, { validateResult: false });
+
+    if (!historicalData || !historicalData.quotes || !Array.isArray(historicalData.quotes) || historicalData.quotes.length === 0) {
+      return res.status(404).json({ message: "No historical data found for this symbol" });
+    }
+
+    // Transform data to match frontend format
+    const transformedData = historicalData.quotes.map((data, index) => ({
+      date: data.date?.toISOString() || new Date(Date.now() - (historicalData.quotes.length - index) * 24 * 60 * 60 * 1000).toISOString(),
+      open: parseFloat(data.open || 0),
+      high: parseFloat(data.high || 0),
+      low: parseFloat(data.low || 0),
+      close: parseFloat(data.close || 0),
+      volume: parseInt(data.volume || 0),
+      change: parseFloat(data.close - data.open || 0),
+      changePercent: parseFloat(((data.close - data.open) / data.open * 100).toFixed(2) || 0),
+      trend: (data.close - data.open) >= 0 ? 1 : -1,
+      priceMovement: (data.close - data.open) >= 0 ? "up" : "down",
+      growth: parseFloat(((data.close - historicalData.quotes[0].close) / historicalData.quotes[0].close * 100).toFixed(2) || 0)
+    })).reverse(); // Reverse to show oldest first
+
+    res.json({
+      symbol,
+      period,
+      data: transformedData,
+      source: "Yahoo Finance",
+      lastUpdated: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error(`HISTORICAL DATA ERROR for ${req.params.symbol}:`, error);
+    res.status(500).json({ 
+      message: "Failed to fetch historical data",
+      error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+    });
+  }
+});
+
+/**
+ * @route   GET /api/market/comprehensive/:symbol
+ * @desc    Get comprehensive real market data including financial metrics
+ * @param   symbol - Stock symbol (e.g., RELIANCE.NS)
+ * @access  Public
+ */
+router.get("/comprehensive/:symbol", async (req, res) => {
+  try {
+    const { symbol } = req.params;
+
+    if (!symbol) {
+      return res.status(400).json({ message: "Symbol is required" });
+    }
+
+    console.log(`Fetching comprehensive data for ${symbol}`);
+
+    // Set timeout for the request
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+    });
+
+    // Get comprehensive quote data with timeout
+    const quotePromise = yf.quote(symbol, {}, { validateResult: false });
+    
+    const quote = await Promise.race([quotePromise, timeoutPromise]);
+
+    if (!quote) {
+      return res.status(404).json({ message: "No data found for this symbol" });
+    }
+
+    // Use quote data directly for most metrics
+    const responseData = {
+      symbol,
+      currentPrice: quote?.regularMarketPrice || 0,
+      change: quote?.regularMarketChange || 0,
+      changePercent: quote?.regularMarketChangePercent || 0,
+      positive: (quote?.regularMarketChange || 0) >= 0,
+      volume: quote?.regularMarketVolume || 0,
+      marketCap: quote?.marketCap || 0,
+      
+      // Real 52-week data from quote
+      weekHigh52: quote?.fiftyTwoWeekHigh || 0,
+      weekLow52: quote?.fiftyTwoWeekLow || 0,
+      avgVolume: quote?.averageDailyVolume3Month || quote?.regularMarketVolume || 0,
+      volatility: 0.2, // Default volatility
+      beta: quote?.beta || 1.2,
+      
+      // Today's data
+      dayHigh: quote?.regularMarketDayHigh || 0,
+      dayLow: quote?.regularMarketDayLow || 0,
+      dayOpen: quote?.regularMarketOpen || 0,
+      
+      // Real financial metrics from quote
+      peRatio: quote?.trailingPE || null,
+      eps: quote?.epsTrailingTwelveMonths || null,
+      bookValue: quote?.bookValue || null,
+      dividendYield: quote?.trailingAnnualDividendYield || null,
+      dividendRate: quote?.trailingAnnualDividendRate || null,
+      
+      // Simple analysis based on available data
+      riskLevel: 'Medium',
+      recommendation: 'Hold',
+      
+      // Metadata
+      source: "Yahoo Finance",
+      lastUpdated: new Date().toISOString(),
+      dataPoints: 1
+    };
+
+    // Determine risk level based on available data
+    const yearChange = quote?.fiftyTwoWeekChangePercent || 0;
+    if (yearChange > 10) {
+      responseData.riskLevel = 'Low';
+      responseData.recommendation = 'Buy';
+    } else if (yearChange < -10) {
+      responseData.riskLevel = 'High';
+      responseData.recommendation = 'Sell';
+    }
+
+    res.json(responseData);
+  } catch (error) {
+    console.error(`COMPREHENSIVE DATA ERROR for ${req.params.symbol}:`, error.message);
+    res.status(500).json({ 
+      message: "Failed to fetch comprehensive data",
+      error: process.env.NODE_ENV === 'development' ? error.message : "Internal server error"
+    });
+  }
+});
+
+/**
+ * Helper function to get start date based on period
+ */
+function getPeriodStartDate(period) {
+  const now = new Date();
+  switch (period) {
+    case "1d":
+      return new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    case "5d":
+      return new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000);
+    case "1mo":
+      return new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+    case "3mo":
+      return new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000);
+    case "6mo":
+      return new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
+    case "1y":
+      return new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000);
+    case "2y":
+      return new Date(now.getTime() - 2 * 365 * 24 * 60 * 60 * 1000);
+    case "5y":
+      return new Date(now.getTime() - 5 * 365 * 24 * 60 * 60 * 1000);
+    case "10y":
+      return new Date(now.getTime() - 10 * 365 * 24 * 60 * 60 * 1000);
+    case "ytd":
+      return new Date(now.getFullYear(), 0, 1); // Start of current year
+    case "max":
+    default:
+      return new Date(now.getTime() - 10 * 365 * 24 * 60 * 60 * 1000); // Default to 10 years
+  }
+}
+
+/**
+ * Helper function to get interval based on period
+ */
+function getIntervalForPeriod(period) {
+  switch (period) {
+    case "1d":
+      return "1m";
+    case "5d":
+      return "5m";
+    case "1mo":
+      return "1d";
+    case "3mo":
+      return "1d";
+    case "6mo":
+      return "1d";
+    case "1y":
+      return "1wk";
+    case "2y":
+      return "1wk";
+    case "5y":
+      return "1mo";
+    case "10y":
+      return "1mo";
+    case "ytd":
+      return "1d";
+    case "max":
+    default:
+      return "1d";
+  }
+}
 
 export default router;
