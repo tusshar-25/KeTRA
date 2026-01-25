@@ -2,73 +2,28 @@ import iposOpen from "./iposOpen.js";
 import iposUpcoming from "./iposUpcoming.js";
 import iposClosed from "./iposClosed.js";
 
-// helper: add days to date
-const addDays = (dateStr, days) => {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() + days);
-  return d.toISOString().split("T")[0];
-};
-
-// helper: subtract days from date
-const subtractDays = (dateStr, days) => {
-  const d = new Date(dateStr);
-  d.setDate(d.getDate() - days);
-  return d.toISOString().split("T")[0];
-};
-
 // In-memory storage for persistent IPO state
 let ipoState = {
   open: [],
   upcoming: [],
   closed: [],
   lastRotationDate: null,
-  initialized: false
+  initialized: false,
+  rotationCycle: 0 // Track rotation cycles
 };
 
-// Generate realistic dates for IPOs
-const generateRealisticDates = (baseIPO, today, index) => {
-  // Create a realistic timeline based on today's date
-  const todayObj = new Date(today);
-  const dayOfWeek = todayObj.getDay();
-  
-  // Show more IPOs opening today for better visibility
-  // Create overlapping IPO periods for more variety
-  let daysFromToday;
-  if (index < 15) {
-    daysFromToday = 0; // First 15 IPOs open today
-  } else if (index < 25) {
-    daysFromToday = 1; // Next 10 IPOs open tomorrow
-  } else if (index < 30) {
-    daysFromToday = 2; // Next 5 IPOs open day after tomorrow
-  } else {
-    daysFromToday = index - 25; // Rest spread out
-  }
-  
-  // If today is weekend, start from next Monday
-  if (dayOfWeek === 6) { // Saturday
-    daysFromToday += 2; // Skip to Monday
-  } else if (dayOfWeek === 0) { // Sunday
-    daysFromToday += 1; // Skip to Monday
-  }
-  
-  // IPOs open for 4-5 business days (longer period for more overlap)
-  const openDate = addDays(today, daysFromToday);
-  const closeDate = addDays(openDate, 4); // 4 days after open (was 3)
-  const listingDate = addDays(closeDate, 1); // 1 day after close (SAME DAY ALLOTMENT & LISTING)
-  
-  return {
-    ...baseIPO,
-    openDate,
-    closeDate,
-    listingDate
-  };
+// Get all available IPOs from the data files
+const getAllIPOs = () => {
+  return [
+    ...iposOpen.map(ipo => ({ ...ipo, originalSource: 'open' })),
+    ...iposUpcoming.map(ipo => ({ ...ipo, originalSource: 'upcoming' })),
+    ...iposClosed.map(ipo => ({ ...ipo, originalSource: 'closed' }))
+  ];
 };
 
-// Initialize IPO state with realistic dates
+// Initialize or rotate IPO state based on daily cycle
 const initializeIPOState = () => {
-  // Use local timezone (IST) instead of UTC
-  const now = new Date();
-  const today = new Date(now.getTime() + (now.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
+  const today = new Date().toLocaleDateString('en-CA');
   console.log(`🚀 Initializing IPO state for date: ${today} (Local Time)`);
   
   // Only initialize if not already done today
@@ -77,287 +32,184 @@ const initializeIPOState = () => {
     return ipoState;
   }
 
-  // Use the actual dates from IPO data instead of generating new ones
-  const allIPOs = [
-    ...iposOpen.map((ipo) => ({ ...ipo })), // Keep original dates
-    ...iposUpcoming.map((ipo) => ({ ...ipo })) // Keep original dates
-  ];
-  
-  // Filter by actual dates from the data
-  console.log(`🔍 Today's date: ${today}`);
-  console.log(`📊 Total IPOs to process: ${allIPOs.length}`);
-  
-  ipoState.open = [];
-  ipoState.upcoming = [];
-  const newlyClosed = [];
-  
-  allIPOs.forEach(ipo => {
-    // OPEN: Current date falls between open and close dates (inclusive)
-    const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
-    // UPCOMING: Current date is before open date
-    const isUpcoming = today < ipo.openDate;
-    // CLOSED: Current date is after close date
-    const isClosed = today > ipo.closeDate;
-    
-    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}`);
-    console.log(`   Logic: isOpen=${isOpen} (open≤today≤close), isUpcoming=${isUpcoming} (today<open), isClosed=${isClosed} (today>close)`);
-    
-    if (isOpen) {
-      console.log(`   ✅ ${ipo.name} → OPEN section`);
-      ipoState.open.push(ipo);
-    } else if (isUpcoming) {
-      console.log(`   ⏭ ${ipo.name} → UPCOMING section`);
-      ipoState.upcoming.push(ipo);
-    } else if (isClosed) {
-      console.log(`   ❌ ${ipo.name} → CLOSED section`);
-      newlyClosed.push(ipo);
-    }
-  });
-  
-  ipoState.closed = [...iposClosed, ...newlyClosed];
-  
-  console.log(`✅ Final counts: Open=${ipoState.open.length}, Upcoming=${ipoState.upcoming.length}, Closed=${ipoState.closed.length}`);
-  ipoState.lastRotationDate = today;
-  ipoState.initialized = true;
+  // Get all available IPOs
+  const allIPOs = getAllIPOs();
+  console.log(`📊 Total IPOs available: ${allIPOs.length}`);
 
-  console.log(`📊 Initial IPO State: ${ipoState.open.length} Open, ${ipoState.upcoming.length} Upcoming, ${ipoState.closed.length} Closed`);
-  return ipoState;
-};
-
-// Process real-time daily rotation
-const processDailyRotation = () => {
-  // Use local timezone (IST) instead of UTC
-  const now = new Date();
-  const today = new Date(now.getTime() + (now.getTimezoneOffset() * 60000)).toISOString().split("T")[0];
+  // Simple rotation logic without dates
+  const rotatedState = processDailyRotation(allIPOs, today);
   
-  // Skip rotation if already processed today
-  if (ipoState.lastRotationDate === today) {
-    return ipoState;
-  }
-  
-  console.log(`🔄 Processing daily rotation for ${today} (Local Time)`);
-  console.log(`📊 Before rotation: ${ipoState.open.length} Open, ${ipoState.upcoming.length} Upcoming, ${ipoState.closed.length} Closed`);
-
-  // Use actual IPO data with real dates
-  const allIPOs = [
-    ...iposOpen.map((ipo) => ({ ...ipo })), // Keep original dates
-    ...iposUpcoming.map((ipo) => ({ ...ipo })) // Keep original dates
-  ];
-  
-  // Filter by actual dates from the data
-  console.log(`🔍 Today's date: ${today}`);
-  console.log(`📊 Total IPOs to process: ${allIPOs.length}`);
-  
-  ipoState.open = [];
-  ipoState.upcoming = [];
-  const newlyClosed = [];
-  
-  allIPOs.forEach(ipo => {
-    // OPEN: Current date falls between open and close dates (inclusive)
-    const isOpen = ipo.openDate <= today && today <= ipo.closeDate;
-    // UPCOMING: Current date is before open date
-    const isUpcoming = today < ipo.openDate;
-    // CLOSED: Current date is after close date
-    const isClosed = today > ipo.closeDate;
-    
-    console.log(`📅 ${ipo.name}: Open=${ipo.openDate}, Close=${ipo.closeDate}, Today=${today}`);
-    console.log(`   Logic: isOpen=${isOpen} (open≤today≤close), isUpcoming=${isUpcoming} (today<open), isClosed=${isClosed} (today>close)`);
-    
-    if (isOpen) {
-      console.log(`   ✅ ${ipo.name} → OPEN section`);
-      ipoState.open.push(ipo);
-    } else if (isUpcoming) {
-      console.log(`   ⏭ ${ipo.name} → UPCOMING section`);
-      ipoState.upcoming.push(ipo);
-    } else if (isClosed) {
-      console.log(`   ❌ ${ipo.name} → CLOSED section`);
-      newlyClosed.push(ipo);
-    }
-  });
-  
-  ipoState.closed = [...iposClosed, ...newlyClosed];
-  
-  console.log(`✅ Final counts: Open=${ipoState.open.length}, Upcoming=${ipoState.upcoming.length}, Closed=${ipoState.closed.length}`);
-
-  // ALLOTMENT: Check for IPOs that should be allotted today (day after closing)
-  const dayAfterClose = addDays(today, -1); // Yesterday was the close date
-  const toBeAllotted = newlyClosed.filter(ipo => ipo.closeDate === dayAfterClose && !ipo.allotted);
-  
-  // Process allotments and listings for IPOs that closed yesterday
-  toBeAllotted.forEach(ipo => {
-    // Generate realistic listing performance (-10% to +30%)
-    const listingPerformance = 1 + (Math.random() * 0.4 - 0.1);
-    const actualListingPrice = Math.round(ipo.issuePrice * listingPerformance);
-    const listingGain = ((listingPerformance - 1) * 100).toFixed(2);
-    
-    // Mark as allotted and listed
-    ipo.allotted = true;
-    ipo.allotmentDate = today;
-    ipo.listed = true;
-    ipo.listingDate = today;
-    ipo.actualListingPrice = actualListingPrice;
-    ipo.listingGain = listingGain + "%";
-    
-    // Move to closed list with final status
-    const existingClosed = ipoState.closed.find(c => c.id === ipo.id);
-    if (!existingClosed) {
-      ipoState.closed.unshift({
-        ...ipo,
-        status: "listed",
-        actualListingPrice,
-        listingGain: listingGain + "%",
-        listingDate: today,
-        allotted: true,
-        allotmentDate: today,
-        listed: true
-      });
-      
-      console.log(`🎉 ${ipo.name} ALLOTTED & LISTED today - Listing: ₹${actualListingPrice} (${listingGain}%)`);
-    }
-  });
-
-  // Add other newly closed IPOs (that aren't being allotted today) to closed list
-  newlyClosed.forEach(ipo => {
-    const existingClosed = ipoState.closed.find(c => c.id === ipo.id);
-    const isBeingAllottedToday = toBeAllotted.find(a => a.id === ipo.id);
-    
-    if (!existingClosed && !isBeingAllottedToday) {
-      // For IPOs that closed but not being allotted today, set future listing date
-      const futureListingDate = addDays(ipo.closeDate, 1);
-      
-      ipoState.closed.unshift({
-        ...ipo,
-        status: "closed",
-        allotted: false,
-        listingDate: futureListingDate,
-        actualListingPrice: null,
-        listingGain: null
-      });
-      
-      console.log(`📉 ${ipo.name} moved to CLOSED - Will be allotted & listed on ${futureListingDate}`);
-    }
-  });
-
-  // 2️⃣ ENSURE MINIMUM IPO COUNTS
-  
-  // Ensure minimum open IPOs (create new if needed)
-  if (ipoState.open.length < 2) {
-    const syntheticIPO = {
-      id: "SYNTHETIC-" + Date.now(),
-      name: "Tech Innovation Ltd",
-      symbol: "TECH" + Math.floor(Math.random() * 1000),
-      sector: "Technology",
-      priceBand: `₹${Math.floor(Math.random() * 500 + 500)} - ₹${Math.floor(Math.random() * 500 + 600)}`,
-      issuePrice: Math.floor(Math.random() * 500 + 600),
-      lotSize: Math.floor(Math.random() * 20 + 10),
-      minInvestment: Math.floor(Math.random() * 10000 + 5000),
-      issueSize: `₹${Math.floor(Math.random() * 5000 + 1000)} Cr`,
-      riskLevel: ["Low", "Medium", "High"][Math.floor(Math.random() * 3)],
-      description: "Leading technology company with innovative solutions and strong growth potential.",
-      status: "open",
-      allotted: false,
-      listed: false,
-      allotmentDate: null,
-      ...generateRealisticDates({}, today, Date.now())
-    };
-    ipoState.open.push(syntheticIPO);
-    console.log(`➕ Created synthetic IPO: ${syntheticIPO.name} (lists on ${syntheticIPO.listingDate})`);
-  }
-
-  // Ensure minimum upcoming IPOs
-  if (ipoState.upcoming.length < 3) {
-    const upcomingIPO = {
-      id: "UPCOMING-" + Date.now(),
-      name: "Future Solutions Ltd",
-      symbol: "FUTR" + Math.floor(Math.random() * 1000),
-      sector: "Healthcare",
-      priceBand: `₹${Math.floor(Math.random() * 400 + 400)} - ₹${Math.floor(Math.random() * 400 + 500)}`,
-      issuePrice: Math.floor(Math.random() * 400 + 500),
-      lotSize: Math.floor(Math.random() * 15 + 15),
-      minInvestment: Math.floor(Math.random() * 8000 + 4000),
-      issueSize: `₹${Math.floor(Math.random() * 3000 + 800)} Cr`,
-      riskLevel: ["Low", "Medium", "High"][Math.floor(Math.random() * 3)],
-      description: "Innovative healthcare company focusing on future medical solutions.",
-      status: "upcoming",
-      allotted: false,
-      listed: false,
-      allotmentDate: null,
-      ...generateRealisticDates({}, today, Date.now() + 1000)
-    };
-    ipoState.upcoming.push(upcomingIPO);
-    console.log(`➕ Created upcoming IPO: ${upcomingIPO.name} (lists on ${upcomingIPO.listingDate})`);
-  }
-
-  // 3️⃣ ROTATION: Recycle old closed IPOs to upcoming
-  if (ipoState.upcoming.length < 5 && ipoState.closed.length > 8) {
-    const recycled = ipoState.closed.pop(); // Take oldest closed IPO
-    
-    // Generate new future dates for recycled IPO (30-45 days from now)
-    const futureDays = 30 + Math.floor(Math.random() * 15);
-    const newOpenDate = addDays(today, futureDays);
-    const newCloseDate = addDays(newOpenDate, 4); // 4 days open period
-    const newListingDate = addDays(newCloseDate, 1); // Same day allotment & listing
-    
-    ipoState.upcoming.push({
-      ...recycled,
-      openDate: newOpenDate,
-      closeDate: newCloseDate,
-      listingDate: newListingDate,
-      status: "upcoming",
-      id: recycled.id + "-RECYCLED-" + Date.now(),
-      name: recycled.name + " (Re-listed)",
-      description: recycled.description + " This IPO has been re-listed due to market demand.",
-      actualListingPrice: null,
-      listingGain: null,
-      allotted: false,
-      listed: false,
-      allotmentDate: null
-    });
-    
-    console.log(`♻️ Recycled ${recycled.name} to UPCOMING - Reopens on ${newOpenDate}, lists on ${newListingDate}`);
-  }
-
-  // Update state with proper status
-  ipoState = { 
-    open: ipoState.open.map(ipo => ({ ...ipo, status: 'open' })),
-    upcoming: ipoState.upcoming.map(ipo => ({ ...ipo, status: 'upcoming' })),
-    closed: ipoState.closed.map(ipo => ({ 
-      ...ipo, 
-      status: ipo.listed ? 'listed' : 'closed'
-    })),
+  ipoState = {
+    ...rotatedState,
     lastRotationDate: today,
     initialized: true
   };
 
-  console.log(`📊 After rotation: ${ipoState.open.length} Open, ${ipoState.upcoming.length} Upcoming, ${ipoState.closed.length} Closed`);
-  console.log(`📅 Today's Date: ${today}`);
-  console.log(`✅ Open IPOs (${ipoState.open.length}): ${ipoState.open.map(i => `${i.name} (${i.openDate} - ${i.closeDate})`).join(', ')}`);
-  console.log(`🔄 Upcoming IPOs (${ipoState.upcoming.length}): ${ipoState.upcoming.map(i => `${i.name} (opens ${i.openDate})`).join(', ')}`);
-  
+  console.log(`✅ Final counts: Open=${ipoState.open.length}, Upcoming=${ipoState.upcoming.length}, Closed=${ipoState.closed.length}`);
   return ipoState;
 };
 
-// Get current IPO status (with proper state management)
+// Process daily rotation without date logic
+const processDailyRotation = (allIPOs, today) => {
+  console.log(`🔄 Processing daily rotation for ${today}`);
+  
+  // Initialize state
+  let newState = {
+    open: [],
+    upcoming: [],
+    closed: []
+  };
+
+  // Get current rotation cycle (0, 1, 2 for different distributions)
+  const cycle = ipoState.rotationCycle % 3;
+  
+  console.log(`🔄 Using rotation cycle: ${cycle}`);
+
+  // Different distribution patterns for each cycle
+  switch (cycle) {
+    case 0:
+      // Cycle 0: More open IPOs
+      distributeIPOs(allIPOs, newState, { open: 8, upcoming: 6, closed: 12 });
+      break;
+    case 1:
+      // Cycle 1: Balanced distribution
+      distributeIPOs(allIPOs, newState, { open: 6, upcoming: 8, closed: 12 });
+      break;
+    case 2:
+      // Cycle 2: More upcoming IPOs
+      distributeIPOs(allIPOs, newState, { open: 5, upcoming: 10, closed: 11 });
+      break;
+  }
+
+  // Process applied IPOs - move them to closed after application
+  processAppliedIPOs(newState);
+
+  // Ensure minimum counts
+  ensureMinimumCounts(newState, allIPOs);
+
+  // Update rotation cycle for next day
+  ipoState.rotationCycle++;
+
+  console.log(`📊 After rotation: ${newState.open.length} Open, ${newState.upcoming.length} Upcoming, ${newState.closed.length} Closed`);
+  
+  return newState;
+};
+
+// Distribute IPOs across categories
+const distributeIPOs = (allIPOs, state, targets) => {
+  const shuffled = [...allIPOs].sort(() => Math.random() - 0.5);
+  
+  // Assign to open
+  state.open = shuffled.splice(0, targets.open).map(ipo => ({
+    ...ipo,
+    status: 'open',
+    openDate: today,
+    closeDate: today, // Same day for simplicity
+    listingDate: today,
+    currentPrice: ipo.issuePrice || (Math.floor(Math.random() * 500) + 500),
+    priceChange: (Math.random() * 10 - 5).toFixed(2),
+    priceChangePercent: (Math.random() * 6 - 3).toFixed(2)
+  }));
+
+  // Assign to upcoming
+  state.upcoming = shuffled.splice(0, targets.upcoming).map(ipo => ({
+    ...ipo,
+    status: 'upcoming',
+    openDate: today,
+    closeDate: today,
+    listingDate: today
+  }));
+
+  // Assign to closed (rest)
+  state.closed = shuffled.map(ipo => ({
+    ...ipo,
+    status: ipo.originalSource === 'closed' ? 'listed' : 'closed',
+    openDate: today,
+    closeDate: today,
+    listingDate: today,
+    actualListingPrice: ipo.issuePrice ? Math.round(ipo.issuePrice * (1 + (Math.random() * 0.4 - 0.1))) : null,
+    listingGain: ipo.issuePrice ? ((Math.random() * 0.4 - 0.1) * 100).toFixed(2) + "%" : null,
+    allotted: ipo.originalSource === 'closed',
+    listed: ipo.originalSource === 'closed'
+  }));
+};
+
+// Process applied IPOs - move them from open to closed
+const processAppliedIPOs = (state) => {
+  // This would integrate with your application tracking system
+  // For now, we'll simulate some IPOs moving from open to closed
+  const appliedCount = Math.floor(Math.random() * 2); // 0-1 IPOs applied per day
+  
+  for (let i = 0; i < appliedCount && state.open.length > 3; i++) {
+    const appliedIPO = state.open.shift();
+    
+    // Move to closed as allotted
+    state.closed.unshift({
+      ...appliedIPO,
+      status: 'listed',
+      allotted: true,
+      listed: true,
+      actualListingPrice: Math.round(appliedIPO.issuePrice * (1 + (Math.random() * 0.3))),
+      listingGain: ((Math.random() * 0.3) * 100).toFixed(2) + "%"
+    });
+    
+    console.log(`📈 ${appliedIPO.name} moved from OPEN to CLOSED (applied and listed)`);
+  }
+};
+
+// Ensure minimum counts in each category
+const ensureMinimumCounts = (state, allIPOs) => {
+  // Ensure minimum open IPOs
+  while (state.open.length < 3 && state.upcoming.length > 0) {
+    const movedIPO = state.upcoming.shift();
+    state.open.push({
+      ...movedIPO,
+      status: 'open',
+      currentPrice: movedIPO.issuePrice || (Math.floor(Math.random() * 500) + 500),
+      priceChange: (Math.random() * 10 - 5).toFixed(2),
+      priceChangePercent: (Math.random() * 6 - 3).toFixed(2)
+    });
+    console.log(`➕ Moved ${movedIPO.name} from UPCOMING to OPEN`);
+  }
+
+  // Ensure minimum upcoming IPOs
+  while (state.upcoming.length < 3 && state.closed.length > 10) {
+    const recycledIPO = state.closed.pop();
+    state.upcoming.push({
+      ...recycledIPO,
+      status: 'upcoming',
+      id: recycledIPO.id + "-RECYCLED-" + Date.now(),
+      name: recycled.name + " (New)",
+      actualListingPrice: null,
+      listingGain: null,
+      allotted: false,
+      listed: false
+    });
+    console.log(`♻️ Recycled ${recycled.name} from CLOSED to UPCOMING`);
+  }
+};
+
+// Get current IPO status
 export const getCurrentIPOStatus = () => {
-  // Always process fresh data to avoid caching issues
   return initializeIPOState();
 };
 
-// Force refresh IPO data (for manual refresh)
+// Force refresh IPO data
 export const refreshIPOData = () => {
   console.log("🔄 Forcing IPO data refresh");
   ipoState.lastRotationDate = null; // Reset to force rotation
   return getCurrentIPOStatus();
 };
 
-// Reset IPO state (for testing)
+// Reset IPO state
 export const resetIPOState = () => {
   ipoState = {
     open: [],
     upcoming: [],
     closed: [],
     lastRotationDate: null,
-    initialized: false
+    initialized: false,
+    rotationCycle: 0
   };
   console.log("🔄 IPO state has been reset");
 };
