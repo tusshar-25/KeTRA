@@ -785,16 +785,22 @@ router.get("/historical/:symbol", async (req, res) => {
 
     console.log(`Fetching historical data for ${symbol} with period ${period}`);
 
+    // Use market close time for period2 to ensure we get complete day data
+    const endTime = period === "1d" ? getMarketEndTime() : new Date();
+
     // Fetch historical data using yahoo-finance2 chart API
     const historicalData = await yf.chart(symbol, {
       period1: getPeriodStartDate(period),
-      period2: new Date(),
+      period2: endTime,
       interval: getIntervalForPeriod(period),
     }, { validateResult: false });
 
     if (!historicalData || !historicalData.quotes || !Array.isArray(historicalData.quotes) || historicalData.quotes.length === 0) {
+      console.log(`No historical data found for ${symbol}. Data received:`, historicalData);
       return res.status(404).json({ message: "No historical data found for this symbol" });
     }
+
+    console.log(`Historical data for ${symbol}: Found ${historicalData.quotes.length} quotes from ${historicalData.quotes[0]?.date} to ${historicalData.quotes[historicalData.quotes.length-1]?.date}`);
 
     // Transform data to match frontend format
     const transformedData = historicalData.quotes.map((data, index) => ({
@@ -946,6 +952,17 @@ function getPeriodStartDate(period) {
     default:
       return new Date(now.getTime() - 10 * 365 * 24 * 60 * 60 * 1000); // Default to 10 years
   }
+}
+
+function getMarketEndTime() {
+  const now = new Date();
+  // If market is closed, set end time to 3:30 PM IST today
+  const istTime = new Date(now.toLocaleString("en-US", { timeZone: "Asia/Kolkata" }));
+  const marketClose = new Date(istTime);
+  marketClose.setHours(15, 30, 0, 0); // 3:30 PM
+  
+  // Convert back to UTC
+  return new Date(marketClose.toLocaleString("en-US", { timeZone: "UTC" }));
 }
 
 /**
