@@ -17,10 +17,10 @@ export const withdrawIPOApplication = (applicationId, symbol) => {
 
 // Initialize existing applications into accelerated system
 export const initializeAcceleratedIPOs = (applications) => {
-  // Create a custom axios instance with shorter timeout for initialization
+  // Create a custom axios instance with very short timeout
   const customApi = axios.create({
     baseURL: import.meta.env.VITE_API_URL,
-    timeout: 5000, // 5 second timeout - backend should respond quickly now
+    timeout: 2000, // 2 second timeout - backend responds immediately now
     headers: {
       'Authorization': `Bearer ${localStorage.getItem('ketra_token')}`,
       'Content-Type': 'application/json'

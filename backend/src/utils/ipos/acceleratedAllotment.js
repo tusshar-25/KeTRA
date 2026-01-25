@@ -249,87 +249,15 @@ const updateIPOStatus = async (symbol, ipo) => {
  * Initialize existing applications into accelerated system
  */
 export const initializeExistingApplications = async (applications) => {
-  const now = new Date();
-  console.log(`🚀 Quick initialization of ${applications.length} applications into accelerated system`);
+  console.log(`🚀 Quick init: ${applications.length} applications received`);
   
-  // Respond immediately, process in background
-  const processedCount = applications.filter(app => 
-    !acceleratedIPOs.has(app.ipoSymbol) && 
-    !app.isWithdrawn && 
-    app.status !== 'refunded'
-  ).length;
-  
-  // Process applications asynchronously in the background without blocking
-  if (processedCount > 0) {
-    setImmediate(() => {
-      console.log(`🔄 Processing ${processedCount} applications in background`);
-      applications.forEach(app => {
-        // Skip if already in accelerated system or withdrawn
-        if (acceleratedIPOs.has(app.ipoSymbol) || app.isWithdrawn || app.status === 'refunded') {
-          return;
-        }
-        
-        // Quick timeline calculation
-        const appliedAt = app.createdAt || now.toISOString();
-        const appliedTime = new Date(appliedAt);
-        const timeSinceApplied = now.getTime() - appliedTime.getTime();
-        const minutesSinceApplied = Math.floor(timeSinceApplied / 60000);
-        
-        let status = 'applied';
-        if (minutesSinceApplied >= 4) {
-          status = 'closed';
-        } else if (minutesSinceApplied >= 2) {
-          status = 'listed';
-        } else if (minutesSinceApplied >= 1) {
-          status = 'allotted';
-        }
-        
-        // Override with actual status
-        if (app.status === 'not_allotted') status = 'not_allotted';
-        else if (app.status === 'allotted') status = 'allotted';
-        else if (app.status === 'listed') status = 'listed';
-        
-        const allotmentAt = new Date(appliedTime.getTime() + TIMELINE.ALLOTMENT_AFTER_MINUTES * 60000);
-        const listingAt = new Date(allotmentAt.getTime() + TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES * 60000);
-        const autoCloseAt = new Date(listingAt.getTime() + TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES * 60000);
-        
-        // Store in accelerated system
-        const acceleratedIPO = {
-          appliedAt,
-          allotmentAt: allotmentAt.toISOString(),
-          listingAt: listingAt.toISOString(),
-          autoCloseAt: autoCloseAt.toISOString(),
-          status,
-          user: app.user._id,
-          amount: app.amountApplied,
-          symbol: app.ipoSymbol,
-          isAllotted: status === 'allotted' || status === 'listed' || status === 'closed',
-          applicationId: app._id
-        };
-        
-        acceleratedIPOs.set(app.ipoSymbol, acceleratedIPO);
-        console.log(`✅ Stored ${app.ipoSymbol} in accelerated system`);
-        
-        // Schedule processing if needed
-        if (status === 'applied') {
-          scheduleAllotment(app.ipoSymbol);
-          scheduleListing(app.ipoSymbol);
-          scheduleAutoClose(app.ipoSymbol);
-        } else if (status === 'allotted') {
-          scheduleListing(app.ipoSymbol);
-          scheduleAutoClose(app.ipoSymbol);
-        } else if (status === 'listed') {
-          scheduleAutoClose(app.ipoSymbol);
-        }
-      });
-      console.log(`✅ Background processing completed for ${processedCount} applications`);
-    });
-  }
-  
+  // Return immediately - no processing at all
+  // The accelerated system will work without initialization
   return {
-    message: `Quick initialization completed for ${applications.length} applications`,
-    initialized: processedCount,
-    processed: processedCount
+    message: `Initialization skipped - ${applications.length} applications will be processed on demand`,
+    initialized: 0,
+    processed: 0,
+    skipped: true
   };
 };
 

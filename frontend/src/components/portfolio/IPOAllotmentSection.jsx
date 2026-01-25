@@ -331,9 +331,9 @@ const IPOAllotmentSection = () => {
       if (applicationsData.length > 0) {
         try {
           console.log('🚀 Starting initialization of accelerated IPOs...');
-          // Add timeout promise to prevent hanging - reduced to 6 seconds
+          // Add timeout promise to prevent hanging - reduced to 3 seconds
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Initialization timeout')), 6000)
+            setTimeout(() => reject(new Error('Initialization timeout')), 3000)
           );
           
           const initResponse = await Promise.race([
@@ -344,6 +344,11 @@ const IPOAllotmentSection = () => {
           console.log('📥 Initialization response:', initResponse);
           console.log('📊 Initialization response data:', initResponse.data);
           console.log(`🚀 Initialized ${initResponse.data?.initialized || 0} applications into accelerated system`);
+          
+          // If initialization was skipped, that's okay
+          if (initResponse.data?.skipped) {
+            console.log('⏭️ Initialization skipped - applications will be processed on demand');
+          }
         } catch (error) {
           console.error("Failed to initialize accelerated IPOs:", error);
           console.error("Initialization error details:", error.response?.data);
