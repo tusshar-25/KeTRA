@@ -250,125 +250,86 @@ const updateIPOStatus = async (symbol, ipo) => {
  */
 export const initializeExistingApplications = async (applications) => {
   const now = new Date();
-  console.log(`🚀 Initializing ${applications.length} applications into accelerated system`);
-  console.log('📋 Current acceleratedIPOs map before initialization:', Array.from(acceleratedIPOs.entries()));
+  console.log(`🚀 Quick initialization of ${applications.length} applications into accelerated system`);
   
-  // Process applications asynchronously but respond immediately
-  const processedApplications = [];
+  // Respond immediately, process in background
+  const processedCount = applications.filter(app => 
+    !acceleratedIPOs.has(app.ipoSymbol) && 
+    !app.isWithdrawn && 
+    app.status !== 'refunded'
+  ).length;
   
-  applications.forEach(app => {
-    console.log(`📋 Processing application: ${app.ipoSymbol}, status: ${app.status}, isWithdrawn: ${app.isWithdrawn}`);
-    
-    // Skip if already in accelerated system
-    if (acceleratedIPOs.has(app.ipoSymbol)) {
-      console.log(`⏭️ Skipping ${app.ipoSymbol} - already in accelerated system`);
-      return;
-    }
-    
-    // Skip withdrawn applications - don't restart countdown
-    if (app.isWithdrawn || app.status === 'refunded') {
-      console.log(`⏭️ Skipping ${app.ipoSymbol} - already withdrawn/refunded`);
-      return;
-    }
-    
-    // Calculate timeline from application creation time
-    const appliedAt = app.createdAt || now.toISOString();
-    const appliedTime = new Date(appliedAt);
-    
-    // Calculate timeline based on when application was made
-    const timeSinceApplied = now.getTime() - appliedTime.getTime();
-    const minutesSinceApplied = Math.floor(timeSinceApplied / 60000);
-    
-    console.log(`⏰ Time analysis for ${app.ipoSymbol}: applied=${appliedAt}, minutesSince=${minutesSinceApplied}`);
-    
-    let allotmentAt, listingAt, autoCloseAt, status;
-    
-    if (minutesSinceApplied >= 4) {
-      // Already past all stages
-      status = 'closed';
-      allotmentAt = new Date(appliedTime.getTime() + TIMELINE.ALLOTMENT_AFTER_MINUTES * 60000);
-      listingAt = new Date(allotmentAt.getTime() + TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES * 60000);
-      autoCloseAt = new Date(listingAt.getTime() + TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES * 60000);
-    } else if (minutesSinceApplied >= 2) {
-      // Past listing stage
-      status = 'listed';
-      allotmentAt = new Date(appliedTime.getTime() + TIMELINE.ALLOTMENT_AFTER_MINUTES * 60000);
-      listingAt = new Date(allotmentAt.getTime() + TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES * 60000);
-      autoCloseAt = new Date(listingAt.getTime() + TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES * 60000);
-    } else if (minutesSinceApplied >= 1) {
-      // Past allotment stage
-      status = 'allotted';
-      allotmentAt = new Date(appliedTime.getTime() + TIMELINE.ALLOTMENT_AFTER_MINUTES * 60000);
-      listingAt = new Date(allotmentAt.getTime() + TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES * 60000);
-      autoCloseAt = new Date(listingAt.getTime() + TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES * 60000);
-    } else {
-      // Still in application stage
-      status = 'applied';
-      allotmentAt = new Date(appliedTime.getTime() + TIMELINE.ALLOTMENT_AFTER_MINUTES * 60000);
-      listingAt = new Date(allotmentAt.getTime() + TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES * 60000);
-      autoCloseAt = new Date(listingAt.getTime() + TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES * 60000);
-    }
-    
-    // Override status with actual application status if different
-    if (app.status === 'not_allotted') {
-      status = 'not_allotted';
-    } else if (app.status === 'allotted') {
-      status = 'allotted';
-    } else if (app.status === 'listed') {
-      status = 'listed';
-    }
-    
-    console.log(`📊 Final status for ${app.ipoSymbol}: ${status}`);
-    
-    // Store in accelerated system
-    const acceleratedIPO = {
-      appliedAt,
-      allotmentAt: allotmentAt.toISOString(),
-      listingAt: listingAt.toISOString(),
-      autoCloseAt: autoCloseAt.toISOString(),
-      status,
-      user: app.user._id,
-      amount: app.amountApplied,
-      symbol: app.ipoSymbol,
-      isAllotted: status === 'allotted' || status === 'listed' || status === 'closed',
-      applicationId: app._id
-    };
-    
-    acceleratedIPOs.set(app.ipoSymbol, acceleratedIPO);
-    console.log(`✅ Stored ${app.ipoSymbol} in accelerated system:`, acceleratedIPO);
-    
-    processedApplications.push({ symbol: app.ipoSymbol, status });
-    
-    // Schedule remaining processing if not completed
-    if (status === 'applied') {
-      console.log(`⏰ Scheduling allotment for ${app.ipoSymbol} in ${TIMELINE.ALLOTMENT_AFTER_MINUTES} minutes`);
-      scheduleAllotment(app.ipoSymbol);
-      scheduleListing(app.ipoSymbol);
-      scheduleAutoClose(app.ipoSymbol);
-    } else if (status === 'allotted') {
-      console.log(`⏰ Scheduling listing for ${app.ipoSymbol} in ${TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES} minutes`);
-      scheduleListing(app.ipoSymbol);
-      scheduleAutoClose(app.ipoSymbol);
-    } else if (status === 'listed') {
-      console.log(`⏰ Scheduling auto-close for ${app.ipoSymbol} in ${TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES} minutes`);
-      scheduleAutoClose(app.ipoSymbol);
-    }
-  });
-  
-  console.log('📋 Final acceleratedIPOs map after initialization:', Array.from(acceleratedIPOs.entries()));
-  
-  // Process database updates asynchronously in the background
-  if (processedApplications.length > 0) {
+  // Process applications asynchronously in the background without blocking
+  if (processedCount > 0) {
     setImmediate(() => {
-      console.log(`🔄 Processing ${processedApplications.length} applications in background`);
-      // Database operations will be handled by the scheduled functions
+      console.log(`🔄 Processing ${processedCount} applications in background`);
+      applications.forEach(app => {
+        // Skip if already in accelerated system or withdrawn
+        if (acceleratedIPOs.has(app.ipoSymbol) || app.isWithdrawn || app.status === 'refunded') {
+          return;
+        }
+        
+        // Quick timeline calculation
+        const appliedAt = app.createdAt || now.toISOString();
+        const appliedTime = new Date(appliedAt);
+        const timeSinceApplied = now.getTime() - appliedTime.getTime();
+        const minutesSinceApplied = Math.floor(timeSinceApplied / 60000);
+        
+        let status = 'applied';
+        if (minutesSinceApplied >= 4) {
+          status = 'closed';
+        } else if (minutesSinceApplied >= 2) {
+          status = 'listed';
+        } else if (minutesSinceApplied >= 1) {
+          status = 'allotted';
+        }
+        
+        // Override with actual status
+        if (app.status === 'not_allotted') status = 'not_allotted';
+        else if (app.status === 'allotted') status = 'allotted';
+        else if (app.status === 'listed') status = 'listed';
+        
+        const allotmentAt = new Date(appliedTime.getTime() + TIMELINE.ALLOTMENT_AFTER_MINUTES * 60000);
+        const listingAt = new Date(allotmentAt.getTime() + TIMELINE.LISTING_AFTER_ALLOTMENT_MINUTES * 60000);
+        const autoCloseAt = new Date(listingAt.getTime() + TIMELINE.AUTO_CLOSE_AFTER_LISTING_MINUTES * 60000);
+        
+        // Store in accelerated system
+        const acceleratedIPO = {
+          appliedAt,
+          allotmentAt: allotmentAt.toISOString(),
+          listingAt: listingAt.toISOString(),
+          autoCloseAt: autoCloseAt.toISOString(),
+          status,
+          user: app.user._id,
+          amount: app.amountApplied,
+          symbol: app.ipoSymbol,
+          isAllotted: status === 'allotted' || status === 'listed' || status === 'closed',
+          applicationId: app._id
+        };
+        
+        acceleratedIPOs.set(app.ipoSymbol, acceleratedIPO);
+        console.log(`✅ Stored ${app.ipoSymbol} in accelerated system`);
+        
+        // Schedule processing if needed
+        if (status === 'applied') {
+          scheduleAllotment(app.ipoSymbol);
+          scheduleListing(app.ipoSymbol);
+          scheduleAutoClose(app.ipoSymbol);
+        } else if (status === 'allotted') {
+          scheduleListing(app.ipoSymbol);
+          scheduleAutoClose(app.ipoSymbol);
+        } else if (status === 'listed') {
+          scheduleAutoClose(app.ipoSymbol);
+        }
+      });
+      console.log(`✅ Background processing completed for ${processedCount} applications`);
     });
   }
   
   return {
-    message: `Initialized ${applications.length} applications into accelerated system`,
-    initialized: processedApplications.length,
-    processed: processedApplications
+    message: `Quick initialization completed for ${applications.length} applications`,
+    initialized: processedCount,
+    processed: processedCount
   };
 };
 

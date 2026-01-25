@@ -331,9 +331,9 @@ const IPOAllotmentSection = () => {
       if (applicationsData.length > 0) {
         try {
           console.log('🚀 Starting initialization of accelerated IPOs...');
-          // Add timeout promise to prevent hanging
+          // Add timeout promise to prevent hanging - reduced to 6 seconds
           const timeoutPromise = new Promise((_, reject) => 
-            setTimeout(() => reject(new Error('Initialization timeout')), 35000)
+            setTimeout(() => reject(new Error('Initialization timeout')), 6000)
           );
           
           const initResponse = await Promise.race([
